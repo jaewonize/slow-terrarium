@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>슬로우 테라리움 — PoC B</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #e8e8e8;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 32px 16px;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  }
+
+  .phone {
+    width: 320px;
+    background: #0a0a0a;
+    border-radius: 44px;
+    padding: 2px;
+    position: relative;
+  }
+
+  .screen {
+    width: 100%;
+    background: #f8f8f8;
+    border-radius: 42px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 720px;
+  }
+
+  /* 상태바 */
+  .statusbar {
+    background: #f8f8f8;
+    padding: 14px 20px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .statusbar-time {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111;
+  }
+  .camera-hole {
+    width: 10px;
+    height: 10px;
+    background: #0a0a0a;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .statusbar-icons {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  /* 탑바 */
+  .topbar {
+    padding: 6px 20px 10px;
+    flex-shrink: 0;
+  }
+  .topbar-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111;
+  }
+  .topbar-sub {
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  /* 점수 입력 */
+  .score-wrap {
+    padding: 0 16px 8px;
+    flex-shrink: 0;
+  }
+  .score-row {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 10px;
+    border: 0.5px solid #e0e0e0;
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  .score-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+  }
+  .score-col-label {
+    font-size: 9px;
+    color: #888;
+    white-space: nowrap;
+  }
+  .score-row-val {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111;
+    text-align: center;
+  }
+  .score-num-wrap {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .score-row-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .score-updown {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 0.5px solid #e0e0e0;
+    background: #f8f8f8;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    color: #444;
+    transition: background 0.1s;
+  }
+  .score-updown:active { background: #e8e8e8; }
+  .score-btn {
+    background: #1D9E75;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    padding: 6px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* 아이콘 영역 */
+  .icons-row {
+    display: flex;
+    justify-content: space-around;
+    padding: 0 12px 10px;
+    flex-shrink: 0;
+  }
+  .icon-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+  .icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fff;
+    border: 0.5px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .icon-circle.declined {
+    background: #fff0f0;
+    border-color: #ffb3b3;
+  }
+  .icon-circle svg {
+    width: 26px;
+    height: 26px;
+  }
+  .red-dot {
+    width: 10px;
+    height: 10px;
+    background: #E24B4A;
+    border-radius: 50%;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    border: 1.5px solid #f8f8f8;
+    display: none;
+  }
+  .icon-circle.declined .red-dot { display: block; }
+  .icon-label {
+    font-size: 10px;
+    color: #555;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .icon-label.declined { color: #E24B4A; font-weight: 700; }
+
+  .divider {
+    height: 0.5px;
+    background: #e8e8e8;
+    margin: 0 16px 10px;
+    flex-shrink: 0;
+  }
+
+  /* 스크롤 콘텐츠 */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 12px;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* 원인 배너 */
+  .cause-banner {
+    background: #fff3f3;
+    border-radius: 10px;
+    border: 0.5px solid #ffcece;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .cause-banner p {
+    font-size: 12px;
+    color: #A32D2D;
+    line-height: 1.6;
+  }
+  .cause-banner strong { font-weight: 700; }
+
+  /* 로딩 */
+  .loading-box {
+    text-align: center;
+    padding: 24px 0;
+    color: #aaa;
+    font-size: 12px;
+  }
+  .loading-dot {
+    display: inline-block;
+    animation: blink 1.2s infinite;
+  }
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  /* 빈 상태 */
+  .empty-state {
+    text-align: center;
+    padding: 32px 0;
+    color: #bbb;
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  /* 솔루션 카드 */
+  .sol-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 0.5px solid #e0e0e0;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .card-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-bottom: 7px;
+  }
+  .badge-action { background: #E1F5EE; color: #085041; }
+  .badge-content { background: #E6F1FB; color: #0C447C; }
+  .badge-app { background: #EEEDFE; color: #3C3489; }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 5px;
+    line-height: 1.4;
+  }
+  .card-desc {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .tag {
+    font-size: 10px;
+    color: #888;
+    background: #f2f2f2;
+    border-radius: 6px;
+    padding: 2px 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 0.5px solid transparent;
+  }
+  .tag.selected { background: #E1F5EE; color: #085041; border-color: #9FE1CB; }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .vote-btns { display: flex; gap: 6px; }
+  .vote-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 0.5px solid #e0e0e0;
+    background: #f8f8f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .vote-btn.voted-up { background: #E1F5EE; border-color: #9FE1CB; }
+  .vote-btn.voted-down { background: #fff0f0; border-color: #ffb3b3; }
+
+  .action-btn {
+    font-size: 10px;
+    border-radius: 8px;
+    padding: 4px 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    font-weight: 600;
+  }
+  .btn-yt { background: #E6F1FB; color: #0C447C; }
+  .btn-app { background: #EEEDFE; color: #3C3489; }
+
+  /* 앱 iframe */
+  .app-frame-wrap {
+    margin-top: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 0.5px solid #e0e0e0;
+    display: none;
+  }
+  .app-frame-wrap.open { display: block; }
+  .app-frame-wrap iframe {
+    width: 100%;
+    height: 280px;
+    border: none;
+    display: block;
+  }
+
+  /* 하단 탭 */
+  .navbar {
+    background: #f8f8f8;
+    border-top: 0.5px solid #e0e0e0;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 14px;
+    flex-shrink: 0;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+  }
+  .nav-item svg { width: 20px; height: 20px; }
+  .nav-label { font-size: 9px; color: #aaa; }
+  .nav-item.active .nav-label { color: #1D9E75; }
+
+  /* 이력 분석 탭 */
+  .history-tab { display: none; }
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .history-title { font-size: 14px; font-weight: 700; color: #111; }
+  .csv-btn {
+    font-size: 11px;
+    background: #1D9E75;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  }
+  .history-table-wrap { overflow-x: auto; }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    min-width: 480px;
+  }
+  .history-table th {
+    background: #f0f0f0;
+    color: #555;
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 0.5px solid #e0e0e0;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .history-table td {
+    padding: 6px 8px;
+    border-bottom: 0.5px solid #f0f0f0;
+    color: #333;
+    vertical-align: top;
+  }
+  .history-empty {
+    text-align: center;
+    padding: 32px 0;
+    color: #bbb;
+    font-size: 12px;
+  }
+
+  /* API 키 경고 배너 */
+  .api-warn {
+    background: #FAEEDA;
+    border: 0.5px solid #EF9F27;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: #633806;
+    line-height: 1.5;
+    display: none;
+  }
+  .api-warn.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+
+    <!-- 상태바 -->
+    <div class="statusbar">
+      <span class="statusbar-time" id="clock">9:41</span>
+      <div class="camera-hole"></div>
+      <div class="statusbar-icons">
+        <svg width="14" height="10" viewBox="0 0 14 10" fill="none">
+          <rect x="0" y="4" width="2" height="6" rx="0.5" fill="#111"/>
+          <rect x="3" y="2.5" width="2" height="7.5" rx="0.5" fill="#111"/>
+          <rect x="6" y="1" width="2" height="9" rx="0.5" fill="#111"/>
+          <rect x="9" y="0" width="2" height="10" rx="0.5" fill="#111"/>
+          <rect x="12" y="0" width="2" height="10" rx="0.5" fill="#ddd"/>
+        </svg>
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
+          <path d="M7 2.5C9.2 2.5 11.2 3.5 12.5 5.1L13.5 4C11.9 2.1 9.6.8 7 .8S2.1 2.1.5 4l1 1.1C2.8 3.5 4.8 2.5 7 2.5z" fill="#111"/>
+          <path d="M7 5.5c1.3 0 2.5.6 3.3 1.5l1-1C10.1 4.7 8.6 4 7 4S3.9 4.7 2.7 6l1 1C4.5 6.1 5.7 5.5 7 5.5z" fill="#111"/>
+          <circle cx="7" cy="9.5" r="1.5" fill="#111"/>
+        </svg>
+        <svg width="24" height="11" viewBox="0 0 24 11" fill="none">
+          <rect x="0" y="1" width="20" height="9" rx="2" stroke="#111" stroke-width="0.8"/>
+          <rect x="1" y="2" width="14" height="7" rx="1" fill="#111"/>
+          <rect x="21" y="3.5" width="2.5" height="4" rx="1" fill="#111"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 탑바 -->
+    <div class="topbar">
+      <div class="topbar-title">슬로우 테라리움</div>
+      <div class="topbar-sub">오늘의 저속노화 점수</div>
+    </div>
+
+    <!-- 점수 입력 -->
+    <div class="score-wrap">
+      <div class="score-row">
+        <div class="score-col">
+          <span class="score-col-label">움직이기</span>
+          <div class="score-num-wrap">
+            <span class="score-row-val" id="val-movement">72</span>
+            <div class="score-row-btns">
+              <div class="score-updown" onclick="adjustScore('movement',1)">▲</div>
+              <div class="score-updown" onclick="adjustScore('movement',-1)">▼</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-col">
+          <span class="score-col-label">쉬기</span>
+          <div class="score-num-wrap">
+            <span class="score-row-val" id="val-recovery">45</span>
+            <div class="score-row-btns">
+              <div class="score-updown" onclick="adjustScore('recovery',1)">▲</div>
+              <div class="score-updown" onclick="adjustScore('recovery',-1)">▼</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-col">
+          <span class="score-col-label">가꾸기</span>
+          <div class="score-num-wrap">
+            <span class="score-row-val" id="val-grooming">60</span>
+            <div class="score-row-btns">
+              <div class="score-updown" onclick="adjustScore('grooming',1)">▲</div>
+              <div class="score-updown" onclick="adjustScore('grooming',-1)">▼</div>
+            </div>
+          </div>
+        </div>
+        <div class="score-col">
+          <span class="score-col-label">다스리기</span>
+          <div class="score-num-wrap">
+            <span class="score-row-val" id="val-management">80</span>
+            <div class="score-row-btns">
+              <div class="score-updown" onclick="adjustScore('management',1)">▲</div>
+              <div class="score-updown" onclick="adjustScore('management',-1)">▼</div>
+            </div>
+          </div>
+        </div>
+        <button class="score-btn" onclick="handleSubmit()">분석</button>
+      </div>
+    </div>
+
+    <!-- 카테고리 아이콘 -->
+    <div class="icons-row">
+      <div class="icon-item" id="icon-movement" onclick="showCategory('movement')">
+        <div class="icon-circle" id="circle-movement">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <div class="red-dot"></div>
+        </div>
+        <span class="icon-label" id="label-movement">잘 움직이기</span>
+      </div>
+      <div class="icon-item" id="icon-recovery" onclick="showCategory('recovery')">
+        <div class="icon-circle" id="circle-recovery">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>
+          </svg>
+          <div class="red-dot"></div>
+        </div>
+        <span class="icon-label" id="label-recovery">잘 쉬기</span>
+      </div>
+      <div class="icon-item" id="icon-grooming" onclick="showCategory('grooming')">
+        <div class="icon-circle" id="circle-grooming">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          <div class="red-dot"></div>
+        </div>
+        <span class="icon-label" id="label-grooming">잘 가꾸기</span>
+      </div>
+      <div class="icon-item" id="icon-management" onclick="showCategory('management')">
+        <div class="icon-circle" id="circle-management">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/>
+            <circle cx="12" cy="9" r="2.5"/>
+          </svg>
+          <div class="red-dot"></div>
+        </div>
+        <span class="icon-label" id="label-management">잘 다스리기</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 솔루션 탭 콘텐츠 -->
+    <div class="scroll-area" id="solutionTab">
+      <div class="api-warn" id="apiWarn">
+        API 키가 설정되지 않아 데모 카드를 표시합니다.<br>
+        HTML 파일의 <strong>YOUR_API_KEY</strong>를 실제 키로 교체하세요.
+      </div>
+      <div class="empty-state" id="emptyState">
+        기준값: 72, 45, 60, 80<br>새 점수를 입력하고 분석을 눌러주세요.
+      </div>
+    </div>
+
+    <!-- 이력 분석 탭 콘텐츠 -->
+    <div class="scroll-area history-tab" id="historyTab">
+      <div class="history-header">
+        <span class="history-title">Voting 이력</span>
+        <button class="csv-btn" onclick="exportCSV()">CSV 내보내기</button>
+      </div>
+      <div id="historyContent">
+        <div class="history-empty">아직 voting 이력이 없어요.</div>
+      </div>
+    </div>
+
+    <!-- 하단 탭 -->
+    <div class="navbar">
+      <div class="nav-item active" id="navSolution" onclick="switchTab('solution')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/>
+        </svg>
+        <span class="nav-label" style="color:#1D9E75;">솔루션</span>
+      </div>
+      <div class="nav-item" id="navHistory" onclick="switchTab('history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span class="nav-label">이력 분석</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API_KEY = 'YOUR_API_KEY';
+const IS_DEMO = API_KEY === 'YOUR_API_KEY';
+
+const CATEGORY_NAMES = {
+  movement: '잘 움직이기',
+  recovery: '잘 쉬기',
+  grooming: '잘 가꾸기',
+  management: '잘 다스리기'
+};
+
+const DEFAULT_SCORES = { movement: 72, recovery: 45, grooming: 60, management: 80 };
+let previousScores = DEFAULT_SCORES;
+let currentSolutions = {};
+let activeCategory = null;
+
+// 시계
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock').textContent = h + ':' + m;
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+// 더미 데이터 (폴백)
+const DUMMY_SOLUTIONS = {
+  recovery: [
+    {
+      category: 'recovery',
+      cause_variable: '입면 전 사용 (취침 60분 이내 기기 사용)',
+      cause_text: '취침 60분 이내 기기 사용이 감지됐어요.',
+      card_type: 'action',
+      title: '취침 60분 전 — 폰을 침실 밖으로',
+      description: '취침 전 블루라이트 차단만으로 수면 효율이 평균 18% 개선돼요. 알람만 맞추고 폰을 침실 밖 다른 방에 두어보세요.',
+      youtube_keyword: null,
+      app_code: null
+    },
+    {
+      category: 'recovery',
+      cause_variable: '수면 효율 저하',
+      cause_text: '수면 효율이 낮아지고 있어요.',
+      card_type: 'content',
+      title: '누워서 하는 바디스캔 — 10분',
+      description: '바디스캔 명상으로 교감신경을 낮추고 입면 시간을 단축할 수 있어요. 발끝부터 머리까지 순서대로 신체 감각에 집중합니다.',
+      youtube_keyword: 'body scan meditation for sleep 10 minutes',
+      app_code: null
+    },
+    {
+      category: 'recovery',
+      cause_variable: '입면 전 사용 (취침 60분 이내 기기 사용)',
+      cause_text: '취침 60분 이내 기기 사용이 감지됐어요.',
+      card_type: 'app',
+      title: '3단계 디톡스 루틴 타이머 (총 35분)',
+      description: '취침 전 디지털 디톡스를 3단계로 나눠 안내하는 타이머예요. 알림 끄기 → 조명 낮추기 → 호흡 이완 순서로 진행합니다.',
+      youtube_keyword: null,
+      app_code: `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #f0f4f8; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; padding: 16px; }
+  .timer-wrap { text-align: center; width: 100%; }
+  .step-badge { background: #E1F5EE; color: #085041; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+  .step-title { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 4px; }
+  .step-desc { font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 16px; }
+  .time-display { font-size: 40px; font-weight: 700; color: #1D9E75; letter-spacing: 2px; margin-bottom: 16px; }
+  .btn-row { display: flex; gap: 8px; justify-content: center; }
+  .btn { border: none; border-radius: 10px; padding: 8px 20px; font-size: 13px; font-family: inherit; cursor: pointer; font-weight: 600; }
+  .btn-start { background: #1D9E75; color: #fff; }
+  .btn-skip { background: #f0f0f0; color: #555; }
+  .progress-bar { width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: #1D9E75; border-radius: 2px; transition: width 1s linear; }
+</style>
+</head>
+<body>
+<div class="timer-wrap">
+  <div class="step-badge" id="stepBadge">1 / 3단계</div>
+  <div class="step-title" id="stepTitle">알림 끄기</div>
+  <div class="step-desc" id="stepDesc">모든 앱 알림을 끄고 화면을 뒤집어 두세요.</div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:100%"></div></div>
+  <div class="time-display" id="timeDisplay">10:00</div>
+  <div class="btn-row">
+    <button class="btn btn-start" id="mainBtn" onclick="toggleTimer()">시작</button>
+    <button class="btn btn-skip" onclick="nextStep()">다음 단계</button>
+  </div>
+</div>
+<script>
+const steps = [
+  { title: '알림 끄기', desc: '모든 앱 알림을 끄고 화면을 뒤집어 두세요.', duration: 600 },
+  { title: '조명 낮추기', desc: '방 조명을 최소로 줄이거나 무드등으로 바꿔보세요.', duration: 900 },
+  { title: '호흡 & 이완', desc: '눈을 감고 4초 들이쉬고 6초 내쉬는 호흡을 반복하세요.', duration: 600 }
+];
+let currentStep = 0, remaining = steps[0].duration, timer = null, running = false;
+function render() {
+  const s = steps[currentStep];
+  document.getElementById('stepBadge').textContent = (currentStep+1) + ' / ' + steps.length + '단계';
+  document.getElementById('stepTitle').textContent = s.title;
+  document.getElementById('stepDesc').textContent = s.desc;
+  const pct = (remaining / s.duration) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  const m = Math.floor(remaining/60).toString().padStart(2,'0');
+  const sec = (remaining%60).toString().padStart(2,'0');
+  document.getElementById('timeDisplay').textContent = m + ':' + sec;
+  document.getElementById('mainBtn').textContent = running ? '일시정지' : '시작';
+}
+function toggleTimer() {
+  if (running) { clearInterval(timer); running = false; }
+  else {
+    running = true;
+    timer = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) { clearInterval(timer); running = false; nextStep(); return; }
+      render();
+    }, 1000);
+  }
+  render();
+}
+function nextStep() {
+  clearInterval(timer); running = false;
+  currentStep = (currentStep + 1) % steps.length;
+  remaining = steps[currentStep].duration;
+  render();
+}
+render();
+<\/script>
+</body>
+</html>`
+    }
+  ]
+};
+
+// 점수 제출
+function adjustScore(cat, delta) {
+  const el = document.getElementById('val-' + cat);
+  let val = parseInt(el.textContent) + delta;
+  val = Math.max(0, Math.min(100, val));
+  el.textContent = val;
+}
+
+async function handleSubmit() {
+  const current = {
+    movement: parseInt(document.getElementById('val-movement').textContent),
+    recovery: parseInt(document.getElementById('val-recovery').textContent),
+    grooming: parseInt(document.getElementById('val-grooming').textContent),
+    management: parseInt(document.getElementById('val-management').textContent)
+  };
+  const prevSnapshot = { ...previousScores };
+
+  // delta 계산 (previousScores는 항상 DEFAULT_SCORES 이상으로 초기화됨)
+  const deltas = {
+    movement: current.movement - prevSnapshot.movement,
+    recovery: current.recovery - prevSnapshot.recovery,
+    grooming: current.grooming - prevSnapshot.grooming,
+    management: current.management - prevSnapshot.management
+  };
+  previousScores = current;
+
+  // 아이콘 상태 초기화
+  resetIcons();
+  currentSolutions = {};
+  activeCategory = null;
+  clearScrollArea();
+
+  const declined = Object.keys(deltas).filter(k => deltas[k] <= -2);
+
+  if (declined.length === 0) {
+    showEmpty('하락한 카테고리가 없어요. 모든 점수가 유지되거나 상승했어요. 👍');
+    return;
+  }
+
+  // 빨간불 점등
+  declined.forEach(cat => setDeclined(cat));
+
+  // API 호출 또는 더미
+  if (IS_DEMO) {
+    document.getElementById('apiWarn').classList.add('show');
+    // 더미: recovery가 하락 카테고리에 있으면 더미 데이터, 없으면 임의 생성
+    declined.forEach(cat => {
+      if (DUMMY_SOLUTIONS[cat]) {
+        currentSolutions[cat] = DUMMY_SOLUTIONS[cat];
+      } else {
+        currentSolutions[cat] = generateFallback(cat, deltas[cat]);
+      }
+    });
+    // 첫 번째 하락 카테고리 자동 표시
+    showCategory(declined[0]);
+  } else {
+    document.getElementById('apiWarn').classList.remove('show');
+    showLoading();
+    try {
+      const results = await Promise.all(declined.map(cat => callClaudeAPI(cat, deltas[cat], current, prevSnapshot)));
+      declined.forEach((cat, i) => { currentSolutions[cat] = results[i]; });
+      showCategory(declined[0]);
+    } catch (e) {
+      showEmpty('분석 중 오류가 발생했어요. API 키를 확인해주세요.');
+      console.error(e);
+    }
+  }
+}
+
+function generateFallback(cat, delta) {
+  const name = CATEGORY_NAMES[cat];
+  const fallbacks = {
+    movement: [
+      { cause_variable: '연속 좌식 빈도', cause_text: '60분 이상 연속 좌식이 감지됐어요.', card_type: 'action', title: '매 60분 — 자리에서 일어나 2분 걷기', description: `${name} 점수가 ${Math.abs(delta)}점 하락했어요. 타이머를 맞춰두고 60분마다 자리를 떠나 2분 이상 걷는 습관을 만들어보세요.`, youtube_keyword: null, app_code: null },
+      { cause_variable: '운동 승수 미적용', cause_text: '오늘 의도적 운동이 기록되지 않았어요.', card_type: 'content', title: '10분 유산소 — 자리에서 바로 할 수 있는', description: '장비 없이 제자리에서 할 수 있는 10분 유산소 루틴이에요. 점심시간이나 업무 중간에 바로 따라할 수 있어요.', youtube_keyword: '10 minute no equipment cardio workout at home', app_code: null }
+    ],
+    grooming: [
+      { cause_variable: '피부 텍스처 저하', cause_text: '피부 결 밀도가 낮아지고 있어요.', card_type: 'action', title: '세안 후 — 30초 보습 마사지 루틴', description: `${name} 점수가 ${Math.abs(delta)}점 하락했어요. 세안 직후 30초간 위아래 방향으로 보습제를 밀어 넣는 마사지를 추가해보세요.`, youtube_keyword: null, app_code: null },
+      { cause_variable: '항상성 붕괴', cause_text: '체중 변동이 기준치를 초과했어요.', card_type: 'content', title: '체중 항상성 — 식사 패턴 교정 가이드', description: '하루 체중 변동을 0.5% 이내로 유지하는 식사 타이밍과 구성 방법을 설명해요. 급격한 체중 변화의 원인과 대응을 다룹니다.', youtube_keyword: 'how to stabilize weight fluctuation daily routine', app_code: null }
+    ],
+    management: [
+      { cause_variable: '인지 변동성 상승', cause_text: '반응속도 불규칙성이 높아졌어요.', card_type: 'action', title: '지금 당장 — 눈 감고 10번 깊은 호흡', description: `${name} 점수가 ${Math.abs(delta)}점 하락했어요. 전두엽 피로가 감지됐어요. 10번의 깊은 호흡으로 교감신경을 낮춰보세요.`, youtube_keyword: null, app_code: null },
+      { cause_variable: '정서 부정성 상승', cause_text: '부정 감정 스티커 누적이 감지됐어요.', card_type: 'content', title: '부정 감정 해소 — 5분 감정 일기 작성법', description: '감정을 글로 쓰면 편도체 활성이 줄어들어요. 5분 감정 일기 작성법과 부정 감정을 처리하는 방법을 소개합니다.', youtube_keyword: 'emotional journaling 5 minutes negative emotions relief', app_code: null }
+    ]
+  };
+
+  return (fallbacks[cat] || []).map(f => ({ category: cat, ...f }));
+}
+
+// Claude API 호출
+async function callClaudeAPI(category, delta, current, previous) {
+  const SYSTEM_PROMPT = `당신은 슬로우 테라리움의 처방 엔진입니다. 점수 하락이 발생한 카테고리에서 원인 변수를 특정하고, 그 변수 값을 실제로 움직일 수 있는 맞춤 솔루션을 생성합니다.
+
+카테고리별 변수 풀:
+- movement(잘 움직이기): 누적 좌식 비중, 연속 좌식 빈도, 장기 정체, 자세 전환 횟수 부족, 틈새 활동 부족, 운동 승수 미적용
+- recovery(잘 쉬기): 휴식 가용성 부족, 스크린 감소 노력 부족, 절대 사용량 초과, 입면 전 사용, 인지적 긴장, 수면 효율 저하, 깊은 수면 비율 부족
+- grooming(잘 가꾸기): 안색 저하, 피부 텍스처 저하, 돌발 트러블, 열노화 징후, 장벽 붕괴, 항상성 붕괴, 근감소, 체지방 증가, 요요 부하
+- management(잘 다스리기): 인지 변동성 상승, 정서 부정성 상승, 조절 액션 미수행, 회복 속도 지연
+
+규칙:
+1. 해당 카테고리 변수 풀에서 1~3개 랜덤 선정
+2. 변수 성격과 delta 크기를 조합해 카드 타입 결정 (action/content/app)
+3. action: 즉각 실행 가능한 행동 제안
+4. content: 콘텐츠 제목 + 설명 + 유튜브 검색 키워드(영문)
+5. app: 완전한 HTML/JS 코드 (iframe 단독 실행 가능, 외부 의존성 없음)
+6. 카드 타입이 다른 솔루션 2~3개 생성
+7. JSON 외 다른 텍스트 절대 출력하지 않음
+
+출력 형식 (JSON 배열):
+[
+  {
+    "category": "카테고리키",
+    "cause_variable": "원인 변수명",
+    "cause_text": "OOO 때문에 점수가 하락했어요.",
+    "card_type": "action|content|app",
+    "title": "솔루션 제목",
+    "description": "설명 2~3문장",
+    "youtube_keyword": "영문 키워드 또는 null",
+    "app_code": "HTML 코드 또는 null"
+  }
+]`;
+
+  const userMsg = `카테고리: ${category} (${CATEGORY_NAMES[category]})
+delta: ${delta}점
+현재 점수: ${current[category]}점
+이전 점수: ${previous[category]}점
+
+위 카테고리의 하락 원인을 분석하고 솔루션 카드 2~3개를 생성해주세요.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API 호출 실패: ' + response.status);
+  const data = await response.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
+
+// 카테고리 솔루션 표시
+function showCategory(cat) {
+  if (!currentSolutions[cat]) return;
+  activeCategory = cat;
+  const solutions = currentSolutions[cat];
+  const area = document.getElementById('solutionTab');
+
+  // 기존 카드 제거 (경고 배너 유지)
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+
+  // 원인 배너
+  const cause = solutions[0];
+  const banner = document.createElement('div');
+  banner.className = 'cause-banner';
+  banner.innerHTML = `<p><strong>${CATEGORY_NAMES[cat]}</strong> 점수가 하락했어요.<br>${cause.cause_text}</p>`;
+  area.appendChild(banner);
+
+  // 카드 렌더링
+  solutions.forEach((sol, idx) => {
+    area.appendChild(renderCard(sol, idx));
+  });
+}
+
+function renderCard(sol, idx) {
+  const card = document.createElement('div');
+  card.className = 'sol-card';
+  const cardId = sol.category + '_' + idx;
+
+  const badgeClass = { action: 'badge-action', content: 'badge-content', app: 'badge-app' }[sol.card_type];
+  const badgeLabel = { action: '행동 제안', content: '콘텐츠 시청 제안', app: '앱' }[sol.card_type];
+
+  let actionBtnHTML = '';
+  if (sol.card_type === 'content' && sol.youtube_keyword) {
+    actionBtnHTML = `<button class="action-btn btn-yt" onclick="openYoutube('${encodeURIComponent(sol.youtube_keyword)}')">유튜브에서 찾기 →</button>`;
+  } else if (sol.card_type === 'app' && sol.app_code) {
+    actionBtnHTML = `<button class="action-btn btn-app" onclick="toggleApp('${cardId}')">앱 실행 →</button>`;
+  }
+
+  card.innerHTML = `
+    <div class="card-badge ${badgeClass}">${badgeLabel}</div>
+    <div class="card-title">${sol.title}</div>
+    <div class="card-desc">${sol.description}</div>
+    <div class="tag-row">
+      <span class="tag" onclick="selectTag(this,'${cardId}','딱 적합')">딱 적합</span>
+      <span class="tag" onclick="selectTag(this,'${cardId}','너무 가벼움')">너무 가벼움</span>
+      <span class="tag" onclick="selectTag(this,'${cardId}','더 풍부하게')">더 풍부하게</span>
+      <span class="tag" onclick="selectTag(this,'${cardId}','너무 무거움')">너무 무거움</span>
+    </div>
+    <div class="card-footer">
+      <div class="vote-btns">
+        <div class="vote-btn" id="up_${cardId}" onclick="vote('${cardId}','👍','${sol.category}','${sol.cause_variable}','${sol.card_type}','${sol.title.replace(/'/g,"\\'")}','${sol.description.replace(/'/g,"\\'")}')">👍</div>
+        <div class="vote-btn" id="down_${cardId}" onclick="vote('${cardId}','👎','${sol.category}','${sol.cause_variable}','${sol.card_type}','${sol.title.replace(/'/g,"\\'")}','${sol.description.replace(/'/g,"\\'")}')">👎</div>
+      </div>
+      ${actionBtnHTML}
+    </div>
+    ${sol.card_type === 'app' && sol.app_code ? `<div class="app-frame-wrap" id="frame_${cardId}"><iframe srcdoc="${sol.app_code.replace(/"/g, '&quot;')}"></iframe></div>` : ''}
+  `;
+  return card;
+}
+
+// 유튜브 열기
+function openYoutube(keyword) {
+  window.open('https://www.youtube.com/results?search_query=' + keyword, '_blank');
+}
+
+// 앱 토글
+function toggleApp(cardId) {
+  const frame = document.getElementById('frame_' + cardId);
+  if (frame) frame.classList.toggle('open');
+}
+
+// 태그 선택
+function selectTag(el, cardId, tag) {
+  const row = el.parentElement;
+  row.querySelectorAll('.tag').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// Voting
+function vote(cardId, voteVal, category, causeVar, cardType, title, desc) {
+  const upBtn = document.getElementById('up_' + cardId);
+  const downBtn = document.getElementById('down_' + cardId);
+  upBtn.classList.remove('voted-up');
+  downBtn.classList.remove('voted-down');
+  if (voteVal === '👍') upBtn.classList.add('voted-up');
+  else downBtn.classList.add('voted-down');
+
+  // 태그 가져오기
+  const card = upBtn.closest('.sol-card');
+  const selectedTag = card.querySelector('.tag.selected');
+  const tag = selectedTag ? selectedTag.textContent : '';
+
+  // 저장
+  saveVote({ category, causeVar, cardType, title, desc, vote: voteVal, tag });
+}
+
+function saveVote(data) {
+  const now = new Date();
+  const ts = now.getFullYear() + '-' +
+    String(now.getMonth()+1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0') + ' ' +
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0');
+
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  history.push({
+    timestamp: ts,
+    category: CATEGORY_NAMES[data.category] || data.category,
+    cause_variable: data.causeVar,
+    card_type: data.cardType,
+    solution_title: data.title,
+    solution_description: data.desc,
+    vote: data.vote,
+    tag: data.tag
+  });
+  localStorage.setItem('poc_b_voting_history', JSON.stringify(history));
+}
+
+// CSV 내보내기
+function exportCSV() {
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  if (history.length === 0) { alert('저장된 이력이 없어요.'); return; }
+
+  const headers = ['시각', '카테고리', '원인 변수', '카드 타입', '솔루션 제목', '솔루션 설명', 'vote', '태그'];
+  const rows = history.map(h => [
+    h.timestamp, h.category, h.cause_variable, h.card_type,
+    h.solution_title, h.solution_description, h.vote, h.tag
+  ].map(v => `"${(v||'').replace(/"/g,'""')}"`).join(','));
+
+  const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'poc_b_voting_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// 이력 탭 렌더링
+function renderHistory() {
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  const content = document.getElementById('historyContent');
+  if (history.length === 0) {
+    content.innerHTML = '<div class="history-empty">아직 voting 이력이 없어요.</div>';
+    return;
+  }
+  const rows = [...history].reverse().map(h => `
+    <tr>
+      <td>${h.timestamp}</td>
+      <td>${h.category}</td>
+      <td>${h.cause_variable}</td>
+      <td>${h.card_type}</td>
+      <td>${h.solution_title}</td>
+      <td>${h.vote}</td>
+      <td>${h.tag}</td>
+    </tr>`).join('');
+
+  content.innerHTML = `
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead><tr>
+          <th>시각</th><th>카테고리</th><th>원인 변수</th>
+          <th>타입</th><th>솔루션</th><th>vote</th><th>태그</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// 탭 전환
+function switchTab(tab) {
+  const solTab = document.getElementById('solutionTab');
+  const hisTab = document.getElementById('historyTab');
+  const navSol = document.getElementById('navSolution');
+  const navHis = document.getElementById('navHistory');
+
+  if (tab === 'solution') {
+    solTab.style.display = 'block';
+    hisTab.style.display = 'none';
+    navSol.classList.add('active');
+    navHis.classList.remove('active');
+    navSol.querySelector('.nav-label').style.color = '#1D9E75';
+    navSol.querySelector('svg').style.stroke = '#1D9E75';
+    navHis.querySelector('.nav-label').style.color = '#aaa';
+    navHis.querySelector('svg').style.stroke = '#aaa';
+  } else {
+    solTab.style.display = 'none';
+    hisTab.style.display = 'block';
+    navHis.classList.add('active');
+    navSol.classList.remove('active');
+    navHis.querySelector('.nav-label').style.color = '#1D9E75';
+    navHis.querySelector('svg').style.stroke = '#1D9E75';
+    navSol.querySelector('.nav-label').style.color = '#aaa';
+    navSol.querySelector('svg').style.stroke = '#aaa';
+    renderHistory();
+  }
+}
+
+// 아이콘 상태
+function resetIcons() {
+  ['movement','recovery','grooming','management'].forEach(cat => {
+    document.getElementById('circle-' + cat).classList.remove('declined');
+    document.getElementById('label-' + cat).classList.remove('declined');
+  });
+}
+function setDeclined(cat) {
+  document.getElementById('circle-' + cat).classList.add('declined');
+  document.getElementById('label-' + cat).classList.add('declined');
+}
+
+// 유틸
+function clearScrollArea() {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+}
+function showEmpty(msg) {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.innerHTML = msg;
+  area.appendChild(el);
+}
+function showLoading() {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+  const el = document.createElement('div');
+  el.className = 'loading-box';
+  el.innerHTML = '분석 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span>';
+  area.appendChild(el);
+}
+
+
+</script>
+</body>
+</html>
