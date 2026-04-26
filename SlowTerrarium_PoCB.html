@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>슬로우 테라리움 — PoC B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root{
+    --bg: #f3efe8;
+    --surface: #faf7f2;
+    --panel: #ffffff;
+    --ink: #1a1a1a;
+    --ink-sub: #8a857d;
+    --line: #ece7df;
+    --accent: #1a1a1a;
+
+    --c-move: #F26B3A;    /* 주황 */
+    --c-move-ink: #3a1608;
+    --c-rest: #B9B2F5;    /* 라벤더 */
+    --c-rest-ink: #1d1a4a;
+    --c-groom: #F5A66A;   /* 라이트 오렌지 */
+    --c-groom-ink: #3a1e08;
+    --c-mgmt: #D9D3C7;    /* 웜 그레이 */
+    --c-mgmt-ink: #2a2620;
+  }
+
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 32px 16px;
+    font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 폰: 검정 외곽선 제거, 둥근 모서리 화면만 */
+  .phone {
+    width: 360px;
+    background: var(--surface);
+    border-radius: 44px;
+    overflow: visible;
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.04),
+      0 30px 60px -20px rgba(60,40,20,0.25),
+      0 10px 30px -10px rgba(60,40,20,0.12);
+    position: relative;
+  }
+
+  .screen {
+    width: 100%;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    height: 760px;
+    border-radius: 44px;
+    overflow: hidden;
+  }
+
+  /* 상태바 */
+  .statusbar {
+    padding: 16px 26px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .statusbar-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .statusbar-icons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* 탑바 */
+  .topbar {
+    padding: 10px 24px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-shrink: 0;
+  }
+  .topbar-title {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .topbar-sub {
+    font-size: 12px;
+    color: var(--ink-sub);
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .gear {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.04);
+    display:flex; align-items:center; justify-content:center;
+    cursor: pointer;
+  }
+
+  /* 히어로 스코어 패널 */
+  .hero {
+    margin: 14px 16px 8px;
+    background: var(--panel);
+    border-radius: 22px;
+    padding: 16px 18px 14px;
+    border: 1px solid var(--line);
+  }
+  .hero-top {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 2px;
+  }
+  .hero-label {
+    font-size: 11px;
+    color: var(--ink-sub);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .hero-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink-sub);
+    background: #f0ece4;
+    padding: 4px 8px;
+    border-radius: 20px;
+  }
+  .hero-score {
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+    line-height: 1.05;
+    margin-top: 2px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .hero-score .delta {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3a8a5c;
+  }
+  .hero-score .delta.down { color: #c75a3f; }
+  .hero-sub {
+    font-size: 11px;
+    color: var(--ink-sub);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* 네 개 값 + 분석 버튼 (간결한 한 줄) */
+  .score-strip {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    margin: 10px 16px 0;
+  }
+  .score-cell {
+    flex: 1;
+    background: var(--panel);
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    padding: 8px 6px 7px;
+    text-align: center;
+    position: relative;
+  }
+  .score-cell .lbl {
+    font-size: 9.5px;
+    color: var(--ink-sub);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .score-cell .val {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-top: 1px;
+    cursor: ns-resize;
+    user-select: none;
+    display: inline-block;
+    line-height: 1.1;
+  }
+  .score-cell.declined {
+    background: #fff3ec;
+    border-color: #f5c6af;
+  }
+  .score-cell.declined .lbl { color: #c75a3f; }
+  .analyze-btn {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+  }
+  .analyze-btn:active { transform: translateY(1px); }
+
+  /* 섹션 헤더 */
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 18px 24px 10px;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .section-count {
+    font-size: 11px;
+    color: var(--ink-sub);
+    font-weight: 500;
+  }
+
+  /* 스크롤 컨텐츠 */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 16px;
+  }
+  .scroll-area::-webkit-scrollbar { display: none; }
+
+  /* 원인 배너 (서브틀) */
+  .cause-banner {
+    background: #fbf2ea;
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid #efe2d1;
+  }
+  .cause-banner p {
+    font-size: 12px;
+    color: #7a4a28;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+  .cause-banner strong { font-weight: 700; color: #4a2a10; }
+
+  /* 솔루션 스택 — 카드별로 똑똑 떨어지는 느낌 */
+  .sol-stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .sol-card {
+    border-radius: 20px;
+    padding: 16px 16px 14px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow:
+      0 1px 0 rgba(0,0,0,0.04),
+      0 8px 20px -12px rgba(60,40,20,0.25);
+  }
+  .sol-card:hover { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 14px 26px -12px rgba(60,40,20,0.32); }
+
+  .sol-card.c-action  { background: var(--c-move);  color: var(--c-move-ink); }
+  .sol-card.c-content { background: var(--c-rest);  color: var(--c-rest-ink); }
+  .sol-card.c-app     { background: var(--c-groom); color: var(--c-groom-ink); }
+  .sol-card.c-mgmt    { background: var(--c-mgmt);  color: var(--c-mgmt-ink); }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    margin-bottom: 10px;
+  }
+  .card-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+
+  .card-title {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.22;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+    text-wrap: pretty;
+  }
+
+  .card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .card-time {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.75;
+  }
+  .card-time svg { width: 11px; height: 11px; }
+
+  .card-actions { display: flex; gap: 6px; align-items: center; }
+  .chip {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.55);
+    border: none;
+    color: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.15s;
+  }
+  .chip:hover { background: rgba(255,255,255,0.75); }
+  .chip.solid {
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+  }
+  .chip.solid:hover { background: #000; }
+  .vote-chip {
+    width: 28px; height: 28px; padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+    font-size: 13px;
+  }
+  .vote-chip.voted-up { background: #fff; }
+  .vote-chip.voted-down { background: rgba(0,0,0,0.75); color:#fff; }
+
+  /* 카드 확장 영역 */
+  .card-expand {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(0,0,0,0.18);
+    display: none;
+  }
+  .card-expand.open { display: block; }
+  .card-desc {
+    font-size: 12.5px;
+    line-height: 1.55;
+    opacity: 0.85;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+  .tag {
+    font-size: 10.5px;
+    background: rgba(255,255,255,0.5);
+    color: inherit;
+    border-radius: 8px;
+    padding: 3px 9px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-weight: 500;
+  }
+  .tag.selected {
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+  }
+  .app-frame-wrap {
+    margin-top: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    display: none;
+  }
+  .app-frame-wrap.open { display: block; }
+  .app-frame-wrap iframe {
+    width: 100%;
+    height: 300px;
+    border: none;
+    display: block;
+    background: #fff;
+  }
+
+  /* 빈/로딩 상태 */
+  .empty-state {
+    text-align: center;
+    padding: 28px 16px;
+    color: var(--ink-sub);
+    font-size: 12.5px;
+    line-height: 1.7;
+    font-weight: 500;
+  }
+  .empty-state strong { color: var(--ink); font-weight: 700; }
+  .loading-box {
+    padding: 22px 0;
+    text-align: center;
+    color: var(--ink-sub);
+    font-size: 12px;
+  }
+  .loading-dot {
+    display: inline-block;
+    animation: blink 1.2s infinite;
+  }
+  .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  .api-warn {
+    background: #fff3d9;
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: #7a5200;
+    font-weight: 500;
+    display: none;
+  }
+  .api-warn.show { display: block; }
+
+  /* 카테고리 필터 pills */
+  .cat-pills {
+    display: flex;
+    gap: 6px;
+    padding: 0 4px 12px;
+    flex-wrap: wrap;
+  }
+  .cat-pill {
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .cat-pill .pill-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #d0c9bc;
+  }
+  .cat-pill.declined .pill-dot { background: #c75a3f; }
+  .cat-pill.active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .cat-pill.active .pill-dot { background: #fff; }
+
+  /* 플로팅 원형 탭 */
+  .fab-nav {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.6) inset,
+      0 8px 22px -8px rgba(60,40,20,0.35),
+      0 2px 6px -1px rgba(60,40,20,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    pointer-events: auto;
+    color: var(--ink-sub);
+    transition: transform 0.18s ease, background 0.18s;
+  }
+  .fab:hover { transform: translateY(-1px); }
+  .fab svg { width: 22px; height: 22px; }
+  .fab.active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+
+
+  /* 이력 탭 */
+  .history-tab { display: none; padding: 4px 16px 16px; }
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 8px;
+  }
+  .history-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .csv-btn {
+    font-size: 11px;
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-row {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  .history-row .h-top {
+    display: flex; justify-content: space-between;
+    color: var(--ink-sub); margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .history-row .h-title {
+    font-size: 12.5px; font-weight: 600; color: var(--ink);
+    line-height: 1.4;
+  }
+  .history-row .h-meta {
+    display: flex; gap: 6px; margin-top: 4px;
+    color: var(--ink-sub); font-size: 10.5px;
+  }
+  .history-row .h-meta span {
+    background: #f0ece4; padding: 2px 7px; border-radius: 8px;
+  }
+  .history-empty {
+    text-align: center;
+    padding: 32px 0;
+    color: var(--ink-sub);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+
+    <!-- 상태바 -->
+    <div class="statusbar">
+      <span class="statusbar-time" id="clock">9:41</span>
+      <div class="statusbar-icons">
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
+          <rect x="0"  y="6" width="2.5" height="5" rx="0.6" fill="#111"/>
+          <rect x="3.5" y="4" width="2.5" height="7" rx="0.6" fill="#111"/>
+          <rect x="7"  y="2" width="2.5" height="9" rx="0.6" fill="#111"/>
+          <rect x="10.5" y="0" width="2.5" height="11" rx="0.6" fill="#111"/>
+        </svg>
+        <svg width="15" height="11" viewBox="0 0 14 11" fill="none">
+          <path d="M7 2.5C9.2 2.5 11.2 3.5 12.5 5.1L13.5 4C11.9 2.1 9.6.8 7 .8S2.1 2.1.5 4l1 1.1C2.8 3.5 4.8 2.5 7 2.5z" fill="#111"/>
+          <path d="M7 5.5c1.3 0 2.5.6 3.3 1.5l1-1C10.1 4.7 8.6 4 7 4S3.9 4.7 2.7 6l1 1C4.5 6.1 5.7 5.5 7 5.5z" fill="#111"/>
+          <circle cx="7" cy="9.5" r="1.5" fill="#111"/>
+        </svg>
+        <svg width="26" height="12" viewBox="0 0 24 11" fill="none">
+          <rect x="0.5" y="1" width="20" height="9" rx="2.2" stroke="#111" stroke-width="1" fill="none"/>
+          <rect x="2"   y="2.5" width="15" height="6" rx="1" fill="#111"/>
+          <rect x="21.5" y="3.5" width="2" height="4" rx="1" fill="#111"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 탑바 -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">슬로우 테라리움</div>
+        <div class="topbar-sub">오늘의 저속노화 분석</div>
+      </div>
+      <div class="gear" title="설정">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 히어로 종합 점수 -->
+    <div class="hero">
+      <div class="hero-top">
+        <span class="hero-label">오늘의 종합 점수</span>
+        <span class="hero-badge" id="heroBadge">대기 중</span>
+      </div>
+      <div class="hero-score">
+        <span id="heroScore">64.2</span>
+        <span class="delta" id="heroDelta">전일 대비 · —</span>
+      </div>
+      <div class="hero-sub" id="heroSub">네 항목 위로 스크롤해서 점수를 조정한 뒤 분석을 눌러주세요.</div>
+    </div>
+
+    <!-- 네 항목 + 분석 -->
+    <div class="score-strip">
+      <div class="score-cell" id="cell-movement">
+        <div class="lbl">움직이기</div>
+        <span class="val" id="val-movement" onwheel="onWheel(event,'movement')">72</span>
+      </div>
+      <div class="score-cell" id="cell-recovery">
+        <div class="lbl">쉬기</div>
+        <span class="val" id="val-recovery" onwheel="onWheel(event,'recovery')">45</span>
+      </div>
+      <div class="score-cell" id="cell-grooming">
+        <div class="lbl">가꾸기</div>
+        <span class="val" id="val-grooming" onwheel="onWheel(event,'grooming')">60</span>
+      </div>
+      <div class="score-cell" id="cell-management">
+        <div class="lbl">다스리기</div>
+        <span class="val" id="val-management" onwheel="onWheel(event,'management')">80</span>
+      </div>
+      <button class="analyze-btn" onclick="handleSubmit()">분석</button>
+    </div>
+
+    <!-- 섹션 헤더 -->
+    <div class="section-head">
+      <span class="section-title">오늘의 솔루션</span>
+      <span class="section-count" id="sectionCount"></span>
+    </div>
+
+    <!-- 솔루션 콘텐츠 -->
+    <div class="scroll-area" id="solutionTab">
+      <div class="api-warn" id="apiWarn">API 키 미연결 — 데모 데이터로 표시 중</div>
+      <div class="empty-state" id="emptyState">
+        기준값 <strong>72 · 45 · 60 · 80</strong><br>
+        점수를 조정하고 <strong>분석</strong>을 눌러 주세요.
+      </div>
+    </div>
+
+    <!-- 이력 탭 -->
+    <div class="history-tab" id="historyTab">
+      <div class="history-header">
+        <span class="history-title">Voting 이력</span>
+        <button class="csv-btn" onclick="exportCSV()">CSV</button>
+      </div>
+      <div id="historyContent">
+        <div class="history-empty">아직 voting 이력이 없어요.</div>
+      </div>
+    </div>
+
+    <!-- 플로팅 원형 탭 -->
+    <div class="fab-nav">
+      <div class="fab active" id="navSolution" onclick="switchTab('solution')" title="솔루션">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/>
+        </svg>
+      </div>
+      <div class="fab" id="navHistory" onclick="switchTab('history')" title="이력">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// UTF-8 Base64 디코딩 함수 (atob는 Latin-1만 지원하므로 교체)
+function b64decode(b64) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+const API_KEY = 'YOUR_API_KEY';
+const IS_DEMO = API_KEY === 'YOUR_API_KEY';
+
+const CATEGORY_NAMES = {
+  movement: '잘 움직이기',
+  recovery: '잘 쉬기',
+  grooming: '잘 가꾸기',
+  management: '잘 다스리기'
+};
+const CATEGORY_SHORT = {
+  movement: '움직이기',
+  recovery: '쉬기',
+  grooming: '가꾸기',
+  management: '다스리기'
+};
+
+const DEFAULT_SCORES = { movement: 72, recovery: 45, grooming: 60, management: 80 };
+let previousScores = { ...DEFAULT_SCORES };
+let currentSolutions = {};
+let activeCategory = null;
+
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock').textContent = h + ':' + m;
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+function updateHeroFromInputs() {
+  const scores = readCurrentScores();
+  const avg = (scores.movement + scores.recovery + scores.grooming + scores.management) / 4;
+  document.getElementById('heroScore').textContent = avg.toFixed(1);
+}
+
+function readCurrentScores() {
+  return {
+    movement: parseInt(document.getElementById('val-movement').textContent),
+    recovery: parseInt(document.getElementById('val-recovery').textContent),
+    grooming: parseInt(document.getElementById('val-grooming').textContent),
+    management: parseInt(document.getElementById('val-management').textContent)
+  };
+}
+
+// 더미 데이터
+const DUMMY_SOLUTIONS = {
+  recovery: [
+    { category: 'recovery', cause_variable: '입면 전 사용', cause_text: '취침 60분 이내 기기 사용이 감지됐어요.', card_type: 'action', title: '폰을 침실 밖으로', duration: '지금 · 1분', description: '취침 60분 전 블루라이트 차단만으로 수면 효율이 평균 18% 개선돼요. 알람만 맞추고 폰을 침실 밖에 두어보세요.', youtube_keyword: null, app_code: null },
+    { category: 'recovery', cause_variable: '수면 효율 저하', cause_text: '수면 효율이 낮아지고 있어요.', card_type: 'content', title: '누워서 하는 바디스캔 — 10분', duration: '10분', description: '바디스캔 명상으로 교감신경을 낮추고 입면 시간을 단축할 수 있어요. 발끝부터 머리까지 순서대로 신체 감각에 집중합니다.', youtube_keyword: 'body scan meditation for sleep 10 minutes', app_code: null },
+    { category: 'recovery', cause_variable: '입면 전 사용', cause_text: '취침 60분 이내 기기 사용이 감지됐어요.', card_type: 'app', title: '3단계 디톡스 루틴 타이머 (총 35분)', duration: '35분', description: '취침 전 디지털 디톡스를 3단계로 나눠 안내하는 타이머예요. 알림 끄기 → 조명 낮추기 → 호흡 이완 순서로 진행합니다.', youtube_keyword: null, app_code: b64decode('PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0ia28iPjxoZWFkPjxtZXRhIGNoYXJzZXQ9IlVURi04Ij48c3R5bGU+Kntib3gtc2l6aW5nOmJvcmRlci1ib3g7bWFyZ2luOjA7cGFkZGluZzowfWJvZHl7Zm9udC1mYW1pbHk6c2Fucy1zZXJpZjtiYWNrZ3JvdW5kOiNmOGY4Zjg7ZGlzcGxheTpmbGV4O2ZsZXgtZGlyZWN0aW9uOmNvbHVtbjthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtoZWlnaHQ6MTAwJTtwYWRkaW5nOjE2cHh9LndyYXB7dGV4dC1hbGlnbjpjZW50ZXI7d2lkdGg6MTAwJX0uc3RlcC1iYWRnZXtiYWNrZ3JvdW5kOiNFMUY1RUU7Y29sb3I6IzA4NTA0MTtmb250LXNpemU6MTFweDtmb250LXdlaWdodDo2MDA7cGFkZGluZzo0cHggMTJweDtib3JkZXItcmFkaXVzOjIwcHg7ZGlzcGxheTppbmxpbmUtYmxvY2s7bWFyZ2luLWJvdHRvbTo4cHh9LnN0ZXAtdGl0bGV7Zm9udC1zaXplOjE1cHg7Zm9udC13ZWlnaHQ6NzAwO2NvbG9yOiMxMTE7bWFyZ2luLWJvdHRvbTo0cHh9LnN0ZXAtZGVzY3tmb250LXNpemU6MTFweDtjb2xvcjojNjY2O2xpbmUtaGVpZ2h0OjEuNTttYXJnaW4tYm90dG9tOjE2cHh9LnRpbWUtZGlzcGxheXtmb250LXNpemU6NDBweDtmb250LXdlaWdodDo3MDA7Y29sb3I6IzFEOUU3NTtsZXR0ZXItc3BhY2luZzoycHg7bWFyZ2luLWJvdHRvbTo0cHh9LnByb2dyZXNzLWJhcnt3aWR0aDoxMDAlO2hlaWdodDo0cHg7YmFja2dyb3VuZDojZTBlMGUwO2JvcmRlci1yYWRpdXM6MnB4O21hcmdpbi1ib3R0b206MTZweH0ucHJvZ3Jlc3MtZmlsbHtoZWlnaHQ6MTAwJTtiYWNrZ3JvdW5kOiMxRDlFNzU7Ym9yZGVyLXJhZGl1czoycHg7dHJhbnNpdGlvbjp3aWR0aCAxcyBsaW5lYXJ9LmJ0bi1yb3d7ZGlzcGxheTpmbGV4O2dhcDo4cHg7anVzdGlmeS1jb250ZW50OmNlbnRlcn0uYnRue2JvcmRlcjpub25lO2JvcmRlci1yYWRpdXM6MTBweDtwYWRkaW5nOjhweCAyMHB4O2ZvbnQtc2l6ZToxM3B4O2N1cnNvcjpwb2ludGVyO2ZvbnQtd2VpZ2h0OjYwMH0uYnRuLXN0YXJ0e2JhY2tncm91bmQ6IzFEOUU3NTtjb2xvcjojZmZmfS5idG4tc2tpcHtiYWNrZ3JvdW5kOiNmMGYwZjA7Y29sb3I6IzU1NX08L3N0eWxlPjwvaGVhZD48Ym9keT48ZGl2IGNsYXNzPSJ3cmFwIj48ZGl2IGNsYXNzPSJzdGVwLWJhZGdlIiBpZD0ic2IiPjEgLyAz64uo6rOEPC9kaXY+PGRpdiBjbGFzcz0ic3RlcC10aXRsZSIgaWQ9InN0Ij7slYzrprwg64GE6riwPC9kaXY+PGRpdiBjbGFzcz0ic3RlcC1kZXNjIiBpZD0ic2QiPuuqqOuToCDslbEg7JWM66a87J2EIOuBhOqzoCDtmZTrqbTsnYQg65Kk7KeR7Ja0IOuRkOyEuOyalC48L2Rpdj48ZGl2IGNsYXNzPSJwcm9ncmVzcy1iYXIiPjxkaXYgY2xhc3M9InByb2dyZXNzLWZpbGwiIGlkPSJwZiIgc3R5bGU9IndpZHRoOjEwMCUiPjwvZGl2PjwvZGl2PjxkaXYgY2xhc3M9InRpbWUtZGlzcGxheSIgaWQ9InRkIj4xMDowMDwvZGl2PjxkaXYgY2xhc3M9ImJ0bi1yb3ciPjxidXR0b24gY2xhc3M9ImJ0biBidG4tc3RhcnQiIGlkPSJtYiIgb25jbGljaz0idG9nZ2xlKCkiPuyLnOyekTwvYnV0dG9uPjxidXR0b24gY2xhc3M9ImJ0biBidG4tc2tpcCIgb25jbGljaz0ibmV4dCgpIj7ri6TsnYw8L2J1dHRvbj48L2Rpdj48L2Rpdj48c2NyaXB0PmNvbnN0IFM9W3t0OifslYzrprwg64GE6riwJyxkOifrqqjrk6Ag7JWxIOyVjOumvOydhCDrgYTqs6Ag7ZmU66m07J2EIOuSpOynkeyWtCDrkZDshLjsmpQuJyx4OjYwMH0se3Q6J+yhsOuqhSDrgq7stpTquLAnLGQ6J+uwqSDsobDrqoXsnYQg7LWc7IaM66GcIOykhOydtOqxsOuCmCDrrLTrk5zrk7HsnLzroZwg67CU6r+U67O07IS47JqULicseDo5MDB9LHt0OiftmLjtnaEg7J207JmEJyxkOifriIjsnYQg6rCQ6rOgIDTstIgg65Ok7J207Ims6rOgIDbstIgg64K07Ims64qUIO2YuO2doeydhCDrsJjrs7XtlZjshLjsmpQuJyx4OjYwMH1dO2xldCBjaT0wLHJlbT1TWzBdLngsdGltZXI9bnVsbCxvbj1mYWxzZTtmdW5jdGlvbiByZW5kZXIoKXtjb25zdCBzPVNbY2ldO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzYicpLnRleHRDb250ZW50PShjaSsxKSsnIC8gJytTLmxlbmd0aCsn64uo6rOEJztkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnc3QnKS50ZXh0Q29udGVudD1zLnQ7ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3NkJykudGV4dENvbnRlbnQ9cy5kO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdwZicpLnN0eWxlLndpZHRoPShyZW0vcy54KjEwMCkrJyUnO2NvbnN0IG09U3RyaW5nKE1hdGguZmxvb3IocmVtLzYwKSkucGFkU3RhcnQoMiwnMCcpO2NvbnN0IHNjPVN0cmluZyhyZW0lNjApLnBhZFN0YXJ0KDIsJzAnKTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgndGQnKS50ZXh0Q29udGVudD1tKyc6JytzYztkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnbWInKS50ZXh0Q29udGVudD1vbj8n7J287Iuc7KCV7KeAJzon7Iuc7J6RJzt9ZnVuY3Rpb24gdG9nZ2xlKCl7aWYob24pe2NsZWFySW50ZXJ2YWwodGltZXIpO29uPWZhbHNlO31lbHNle29uPXRydWU7dGltZXI9c2V0SW50ZXJ2YWwoKCk9PntyZW0tLTtpZihyZW08PTApe2NsZWFySW50ZXJ2YWwodGltZXIpO29uPWZhbHNlO25leHQoKTtyZXR1cm47fXJlbmRlcigpO30sMTAwMCk7fXJlbmRlcigpO31mdW5jdGlvbiBuZXh0KCl7Y2xlYXJJbnRlcnZhbCh0aW1lcik7b249ZmFsc2U7Y2k9KGNpKzEpJVMubGVuZ3RoO3JlbT1TW2NpXS54O3JlbmRlcigpO31yZW5kZXIoKTs8L3NjcmlwdD48L2JvZHk+PC9odG1sPg==') }
+  ],
+  movement: [
+    { category: 'movement', cause_variable: '연속 좌식', cause_text: '60분 이상 연속 좌식이 감지됐어요.', card_type: 'action', title: '매 60분 — 자리에서 일어나 2분 걷기', duration: '지금 · 2분', description: '타이머를 맞춰두고 60분마다 자리를 떠나 2분 이상 걷는 습관을 만들어보세요. 짧은 이동이라도 연속 좌식 패널티를 초기화해요.', youtube_keyword: null, app_code: null },
+    { category: 'movement', cause_variable: '운동 미적용', cause_text: '오늘 의도적 운동이 기록되지 않았어요.', card_type: 'content', title: '10분 유산소 — 장비 없이', duration: '10분', description: '장비 없이 제자리에서 할 수 있는 10분 유산소 루틴이에요. 점심시간이나 업무 중간에 바로 따라할 수 있어요.', youtube_keyword: '10 minute no equipment cardio workout at home', app_code: null }
+  ],
+  grooming: [
+    { category: 'grooming', cause_variable: '피부 텍스처 저하', cause_text: '피부 결 밀도가 낮아지고 있어요.', card_type: 'action', title: '세안 후 — 30초 보습 마사지 루틴', duration: '지금 · 30초', description: '세안 직후 30초간 위아래 방향으로 보습제를 밀어 넣는 마사지를 추가해보세요. 혈액순환을 높이고 피부 결 회복을 도와요.', youtube_keyword: null, app_code: null },
+    { category: 'grooming', cause_variable: '피부 텍스처 저하', cause_text: '피부 수분이 부족해서 결이 거칠어지고 있어요.', card_type: 'app', title: '하루 6잔 물 마시기 챌린지', duration: '하루 종일', description: '피부 수분은 외부 케어보다 내부 수분 섭취가 먼저예요. 하루 6잔 목표를 컵을 채워가며 달성해봐요.', youtube_keyword: null, app_code: b64decode('PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0ia28iPjxoZWFkPjxtZXRhIGNoYXJzZXQ9IlVURi04Ij48c3R5bGU+Kntib3gtc2l6aW5nOmJvcmRlci1ib3g7bWFyZ2luOjA7cGFkZGluZzowfWJvZHl7Zm9udC1mYW1pbHk6c2Fucy1zZXJpZjtiYWNrZ3JvdW5kOiNmMGY2ZmY7ZGlzcGxheTpmbGV4O2ZsZXgtZGlyZWN0aW9uOmNvbHVtbjthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtoZWlnaHQ6MTAwJTtwYWRkaW5nOjE2cHh9LndyYXB7dGV4dC1hbGlnbjpjZW50ZXI7d2lkdGg6MTAwJX0udGl0bGV7Zm9udC1zaXplOjE0cHg7Zm9udC13ZWlnaHQ6NzAwO2NvbG9yOiMxMTE7bWFyZ2luLWJvdHRvbTo0cHh9LnN1Yntmb250LXNpemU6MTFweDtjb2xvcjojODg4O21hcmdpbi1ib3R0b206MjBweH0uY3Vwc3tkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OmNlbnRlcjtnYXA6MTBweDttYXJnaW4tYm90dG9tOjE2cHh9LmN1cHt3aWR0aDozOHB4O2hlaWdodDo0OHB4O2JvcmRlci1yYWRpdXM6NHB4IDRweCAxMHB4IDEwcHg7Ym9yZGVyOjJweCBzb2xpZCAjOTBDQUY5O2JhY2tncm91bmQ6I2ZmZjtjdXJzb3I6cG9pbnRlcjtwb3NpdGlvbjpyZWxhdGl2ZTtvdmVyZmxvdzpoaWRkZW47dHJhbnNpdGlvbjphbGwgMC4yc30uY3VwLmZpbGxlZHtib3JkZXItY29sb3I6IzE5NzZEMn0uY3VwLWZpbGx7cG9zaXRpb246YWJzb2x1dGU7Ym90dG9tOjA7bGVmdDowO3dpZHRoOjEwMCU7aGVpZ2h0OjA7YmFja2dyb3VuZDojNjRCNUY2O3RyYW5zaXRpb246aGVpZ2h0IDAuM3N9LmN1cC5maWxsZWQgLmN1cC1maWxse2hlaWdodDoxMDAlO2JhY2tncm91bmQ6IzE5NzZEMn0uc3RhdHVze2ZvbnQtc2l6ZToxM3B4O2ZvbnQtd2VpZ2h0OjcwMDtjb2xvcjojMTk3NkQyO21hcmdpbi1ib3R0b206OHB4fS5wcm9ncmVzcy1iYXJ7d2lkdGg6MTAwJTtoZWlnaHQ6NnB4O2JhY2tncm91bmQ6I2UwZTBlMDtib3JkZXItcmFkaXVzOjNweDttYXJnaW4tYm90dG9tOjE2cHh9LnByb2dyZXNzLWZpbGx7aGVpZ2h0OjEwMCU7YmFja2dyb3VuZDojMTk3NkQyO2JvcmRlci1yYWRpdXM6M3B4O3RyYW5zaXRpb246d2lkdGggMC4zc30uYnRuLXJvd3tkaXNwbGF5OmZsZXg7Z2FwOjhweDtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyfS5idG57Ym9yZGVyOm5vbmU7Ym9yZGVyLXJhZGl1czoxMHB4O3BhZGRpbmc6OHB4IDE4cHg7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6NjAwO2N1cnNvcjpwb2ludGVyO2ZvbnQtZmFtaWx5OmluaGVyaXR9LmJ0bi1hZGR7YmFja2dyb3VuZDojMTk3NkQyO2NvbG9yOiNmZmZ9LmJ0bi1yZXNldHtiYWNrZ3JvdW5kOiNmMGYwZjA7Y29sb3I6IzU1NX08L3N0eWxlPjwvaGVhZD48Ym9keT48ZGl2IGNsYXNzPSJ3cmFwIj48ZGl2IGNsYXNzPSJ0aXRsZSI+7Jik64qY7J2YIOusvCDrp4jsi5zquLAg7LGM66aw7KeAPC9kaXY+PGRpdiBjbGFzcz0ic3ViIj7tlLzrtoAg7IiY67aE7J2EIOychO2VtCDtlZjro6ggNuyelOydhCDssYTsm4zrtJDsmpQ8L2Rpdj48ZGl2IGNsYXNzPSJjdXBzIiBpZD0iY3VwcyI+PC9kaXY+PGRpdiBjbGFzcz0icHJvZ3Jlc3MtYmFyIj48ZGl2IGNsYXNzPSJwcm9ncmVzcy1maWxsIiBpZD0icGYiIHN0eWxlPSJ3aWR0aDowJSI+PC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0ic3RhdHVzIiBpZD0ic3RhdHVzIj4wIC8gNuyelDwvZGl2PjxkaXYgY2xhc3M9ImJ0bi1yb3ciPjxidXR0b24gY2xhc3M9ImJ0biBidG4tYWRkIiBvbmNsaWNrPSJkcmluaygpIj7tlZwg7J6UIOuniOyFqOyWtOyalCDwn5KnPC9idXR0b24+PGJ1dHRvbiBjbGFzcz0iYnRuIGJ0bi1yZXNldCIgb25jbGljaz0icmVzZXQoKSI+7LSI6riw7ZmUPC9idXR0b24+PC9kaXY+PC9kaXY+PHNjcmlwdD5jb25zdCBHT0FMPTY7bGV0IGNvdW50PXBhcnNlSW50KGxvY2FsU3RvcmFnZS5nZXRJdGVtKCd3YXRlcl9jb3VudCcpfHwnMCcpO2Z1bmN0aW9uIHJlbmRlcigpe2NvbnN0IGN1cHM9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2N1cHMnKTtjdXBzLmlubmVySFRNTD0nJztmb3IobGV0IGk9MDtpPEdPQUw7aSsrKXtjb25zdCBjPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2RpdicpO2MuY2xhc3NOYW1lPSdjdXAnKyhpPGNvdW50PycgZmlsbGVkJzonJyk7Yy5pbm5lckhUTUw9JzxkaXYgY2xhc3M9ImN1cC1maWxsIj48L2Rpdj4nO2Mub25jbGljaz0oKT0+e2NvdW50PWkrMTtzYXZlKCk7cmVuZGVyKCk7fTtjdXBzLmFwcGVuZENoaWxkKGMpO31kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGYnKS5zdHlsZS53aWR0aD0oY291bnQvR09BTCoxMDApKyclJztjb25zdCBzPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzdGF0dXMnKTtpZihjb3VudD49R09BTCl7cy50ZXh0Q29udGVudD0n66qp7ZGcIOuLrOyEsSEg7ZS867aA6rCAIOqzoOuniOybjO2VoCDqsbDsmIjsmpQg8J+OiSc7cy5zdHlsZS5jb2xvcj0nIzA4NTA0MSc7fWVsc2V7cy50ZXh0Q29udGVudD1jb3VudCsnIC8gJytHT0FMKyfsnpQgKCcrKEdPQUwtY291bnQpKyfsnpQg64Ko7JWY7Ja07JqUKSc7cy5zdHlsZS5jb2xvcj0nIzE5NzZEMic7fX1mdW5jdGlvbiBkcmluaygpe2lmKGNvdW50PEdPQUwpe2NvdW50Kys7c2F2ZSgpO3JlbmRlcigpO319ZnVuY3Rpb24gcmVzZXQoKXtjb3VudD0wO3NhdmUoKTtyZW5kZXIoKTt9ZnVuY3Rpb24gc2F2ZSgpe2xvY2FsU3RvcmFnZS5zZXRJdGVtKCd3YXRlcl9jb3VudCcsY291bnQpO31yZW5kZXIoKTs8L3NjcmlwdD48L2JvZHk+PC9odG1sPg==') }
+  ],
+  management: [
+    { category: 'management', cause_variable: '정서 부정성 상승', cause_text: '부정 감정 스티커 누적이 감지됐어요.', card_type: 'content', title: '5분 감정 일기 작성법', duration: '5분', description: '감정을 글로 쓰면 편도체 활성이 줄어들어요. 5분 감정 일기 작성법과 부정 감정 처리법을 소개합니다.', youtube_keyword: 'emotional journaling 5 minutes negative emotions relief', app_code: null },
+    { category: 'management', cause_variable: '인지 변동성 상승', cause_text: '반응속도 불규칙성이 높아졌어요.', card_type: 'app', title: '4-7-8 호흡 가이드', duration: '3분', description: '4초 들이쉬고 7초 멈추고 8초 내쉬는 호흡법으로 교감신경을 낮춰요. 전두엽 피로 회복에 효과적입니다.', youtube_keyword: null, app_code: b64decode('PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0ia28iPjxoZWFkPjxtZXRhIGNoYXJzZXQ9IlVURi04Ij48c3R5bGU+Kntib3gtc2l6aW5nOmJvcmRlci1ib3g7bWFyZ2luOjA7cGFkZGluZzowfWJvZHl7Zm9udC1mYW1pbHk6c2Fucy1zZXJpZjtiYWNrZ3JvdW5kOiNmMGY0Zjg7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO2hlaWdodDoxMDAlO3BhZGRpbmc6OHB4fS53cmFwe3RleHQtYWxpZ246Y2VudGVyO3dpZHRoOjEwMCV9LnBse2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OjcwMDtjb2xvcjojM0MzNDg5O21hcmdpbi1ib3R0b206NHB4fS5wZHtmb250LXNpemU6MTBweDtjb2xvcjojNzc3O21hcmdpbi1ib3R0b206MTJweH0uY3d7cG9zaXRpb246cmVsYXRpdmU7d2lkdGg6MTEwcHg7aGVpZ2h0OjExMHB4O21hcmdpbjowIGF1dG8gMTBweH0uY2J7ZmlsbDpub25lO3N0cm9rZTojZThlOGU4O3N0cm9rZS13aWR0aDo4fS5jZntmaWxsOm5vbmU7c3Ryb2tlOiM3QzZFREI7c3Ryb2tlLXdpZHRoOjg7c3Ryb2tlLWxpbmVjYXA6cm91bmQ7dHJhbnNmb3JtLW9yaWdpbjpjZW50ZXI7dHJhbnNmb3JtOnJvdGF0ZSgtOTBkZWcpO3RyYW5zaXRpb246c3Ryb2tlLWRhc2hvZmZzZXQgMC41cyBsaW5lYXJ9LmNje3Bvc2l0aW9uOmFic29sdXRlO3RvcDo1MCU7bGVmdDo1MCU7dHJhbnNmb3JtOnRyYW5zbGF0ZSgtNTAlLC01MCUpO2ZvbnQtc2l6ZTozMnB4O2ZvbnQtd2VpZ2h0OjcwMDtjb2xvcjojM0MzNDg5fS5yaXtmb250LXNpemU6MTBweDtjb2xvcjojYWFhO21hcmdpbi1ib3R0b206MTJweH0uYnRue2JhY2tncm91bmQ6I0VFRURGRTtjb2xvcjojM0MzNDg5O2JvcmRlcjpub25lO2JvcmRlci1yYWRpdXM6MTBweDtwYWRkaW5nOjhweCAyNHB4O2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OjcwMDtjdXJzb3I6cG9pbnRlcn0uYnRuLm9ue2JhY2tncm91bmQ6IzNDMzQ4OTtjb2xvcjojZmZmfTwvc3R5bGU+PC9oZWFkPjxib2R5PjxkaXYgY2xhc3M9IndyYXAiPjxkaXYgY2xhc3M9InBsIiBpZD0icGwiPuykgOu5hDwvZGl2PjxkaXYgY2xhc3M9InBkIiBpZD0icGQiPuuyhO2KvOydhCDriIzrn6wgNC03LTgg7Zi47Z2h7J2EIOyLnOyeke2VtOyalDwvZGl2PjxkaXYgY2xhc3M9ImN3Ij48c3ZnIHdpZHRoPSIxMTAiIGhlaWdodD0iMTEwIiB2aWV3Qm94PSIwIDAgMTEwIDExMCI+PGNpcmNsZSBjbGFzcz0iY2IiIGN4PSI1NSIgY3k9IjU1IiByPSI0NiIvPjxjaXJjbGUgY2xhc3M9ImNmIiBpZD0iY2YiIGN4PSI1NSIgY3k9IjU1IiByPSI0NiIgc3Ryb2tlLWRhc2hhcnJheT0iMjg5LjAiIHN0cm9rZS1kYXNob2Zmc2V0PSIyODkuMCIvPjwvc3ZnPjxkaXYgY2xhc3M9ImNjIiBpZD0iY2QiPi08L2Rpdj48L2Rpdj48ZGl2IGNsYXNzPSJyaSIgaWQ9InJpIj407ZqMIOuwmOuztSDqtozsnqU8L2Rpdj48YnV0dG9uIGNsYXNzPSJidG4iIGlkPSJtYiIgb25jbGljaz0idG9nZ2xlKCkiPuyLnOyekTwvYnV0dG9uPjwvZGl2PjxzY3JpcHQ+Y29uc3QgUD1be2w6J+uTpOydtOyJrOq4sCcsZDon7L2U66GcIOyynOyynO2eiCcsdDo0fSx7bDon66mI7LaU6riwJyxkOifsiKjsnYQg7LC47JWE7JqUJyx0Ojd9LHtsOifrgrTsiazquLAnLGQ6J+yeheycvOuhnCDsspzsspztnognLHQ6OH1dO2NvbnN0IEM9MipNYXRoLlBJKjQ2O2xldCBwaT0wLHJlbT00LHRpbWVyPW51bGwsb249ZmFsc2Uscm5kPTA7ZnVuY3Rpb24gcmVuZGVyKCl7Y29uc3QgcD1QW3BpXTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGwnKS50ZXh0Q29udGVudD1vbj9wLmw6J+ykgOu5hCc7ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BkJykudGV4dENvbnRlbnQ9b24/cC5kOifrsoTtirzsnYQg64iM65+sIDQtNy04IO2YuO2doeydhCDsi5zsnpHtlbTsmpQnO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdjZCcpLnRleHRDb250ZW50PW9uP3JlbTonLSc7ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2NmJykuc3R5bGUuc3Ryb2tlRGFzaG9mZnNldD1DKigxLShvbj9yZW0vcC50OjApKTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncmknKS50ZXh0Q29udGVudD1ybmQ+MD9ybmQrJ+uyiOynuCDtmLjtnaEnOic07ZqMIOuwmOuztSDqtozsnqUnO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtYicpLmNsYXNzTmFtZT0nYnRuJysob24/JyBvbic6JycpO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdtYicpLnRleHRDb250ZW50PW9uPyfsoJXsp4AnOifsi5zsnpEnO31mdW5jdGlvbiB0b2dnbGUoKXtpZihvbil7Y2xlYXJJbnRlcnZhbCh0aW1lcik7b249ZmFsc2U7cGk9MDtyZW09UFswXS50O3JuZD0wO31lbHNle29uPXRydWU7cm5kPTE7dGltZXI9c2V0SW50ZXJ2YWwoKCk9PntyZW0tLTtpZihyZW08PTApe3BpPShwaSsxKSVQLmxlbmd0aDtpZihwaT09PTApcm5kKys7cmVtPVBbcGldLnQ7fXJlbmRlcigpO30sMTAwMCk7fXJlbmRlcigpO31yZW5kZXIoKTs8L3NjcmlwdD48L2JvZHk+PC9odG1sPg==') }
+  ]
+};
+function onWheel(e, cat) {
+  e.preventDefault();
+  const el = document.getElementById('val-' + cat);
+  let val = parseInt(el.textContent) + (e.deltaY < 0 ? 1 : -1);
+  val = Math.max(0, Math.min(100, val));
+  el.textContent = val;
+  updateHeroFromInputs();
+}
+
+async function handleSubmit() {
+  const current = readCurrentScores();
+  const prevSnapshot = { ...previousScores };
+  const deltas = {
+    movement: current.movement - prevSnapshot.movement,
+    recovery: current.recovery - prevSnapshot.recovery,
+    grooming: current.grooming - prevSnapshot.grooming,
+    management: current.management - prevSnapshot.management
+  };
+  previousScores = current;
+
+  resetCells();
+  currentSolutions = {};
+  activeCategory = null;
+
+  const declined = Object.keys(deltas).filter(k => deltas[k] <= -2);
+  const avg = (current.movement + current.recovery + current.grooming + current.management) / 4;
+  const prevAvg = (prevSnapshot.movement + prevSnapshot.recovery + prevSnapshot.grooming + prevSnapshot.management) / 4;
+  const dAvg = (avg - prevAvg);
+  document.getElementById('heroScore').textContent = avg.toFixed(1);
+  const dEl = document.getElementById('heroDelta');
+  const sign = dAvg >= 0 ? '+' : '';
+  dEl.textContent = `전일 대비 · ${sign}${dAvg.toFixed(1)}`;
+  dEl.classList.toggle('down', dAvg < 0);
+  document.getElementById('heroBadge').textContent = declined.length ? `${declined.length}개 하락` : '유지';
+  document.getElementById('heroSub').textContent = declined.length
+    ? `${declined.map(c => CATEGORY_SHORT[c]).join(', ')} 점수가 하락했어요.`
+    : `유지 또는 상승 중이에요. 좋아요.`;
+
+  clearScrollArea();
+
+  if (declined.length === 0) {
+    document.getElementById('sectionCount').textContent = '';
+    showEmpty('하락한 카테고리가 없어요.<br>모든 점수가 유지되거나 상승했어요.');
+    return;
+  }
+
+  declined.forEach(cat => setDeclined(cat));
+
+  if (IS_DEMO) {
+    document.getElementById('apiWarn').classList.add('show');
+    declined.forEach(cat => {
+      currentSolutions[cat] = DUMMY_SOLUTIONS[cat] || generateFallback(cat, deltas[cat]);
+    });
+    renderAllSolutions(declined);
+  } else {
+    document.getElementById('apiWarn').classList.remove('show');
+    showLoading();
+    try {
+      const results = await Promise.all(declined.map(cat => callClaudeAPI(cat, deltas[cat], current, prevSnapshot)));
+      declined.forEach((cat, i) => { currentSolutions[cat] = results[i]; });
+      renderAllSolutions(declined);
+    } catch (e) {
+      showEmpty('분석 중 오류가 발생했어요.<br>API 키를 확인해주세요.');
+      console.error(e);
+    }
+  }
+}
+
+function generateFallback(cat, delta) {
+  const name = CATEGORY_NAMES[cat];
+  const fallbacks = {
+    movement: [
+      { cause_variable: '연속 좌식', cause_text: '60분 이상 연속 좌식이 감지됐어요.', card_type: 'action', title: '자리에서 일어나 2분 걷기', duration: '지금 · 2분', description: `${name} 점수가 ${Math.abs(delta)}점 하락했어요. 타이머를 맞춰두고 60분마다 자리를 떠나 2분 이상 걷는 습관을 만들어보세요.`, youtube_keyword: null, app_code: null },
+      { cause_variable: '운동 미적용', cause_text: '오늘 의도적 운동이 기록되지 않았어요.', card_type: 'content', title: '10분 유산소 — 장비 없이', duration: '10분', description: '장비 없이 제자리에서 할 수 있는 10분 유산소 루틴이에요. 점심시간이나 업무 중간에 바로 따라할 수 있어요.', youtube_keyword: '10 minute no equipment cardio workout at home', app_code: null }
+    ],
+    grooming: [
+      { cause_variable: '피부 텍스처 저하', cause_text: '피부 결 밀도가 낮아지고 있어요.', card_type: 'action', title: '세안 후 — 30초 보습 마사지 루틴', duration: '지금 · 30초', description: '세안 직후 30초간 위아래 방향으로 보습제를 밀어 넣는 마사지를 추가해보세요.', youtube_keyword: null, app_code: null },
+      { cause_variable: '피부 텍스처 저하', cause_text: '피부 수분이 부족해서 결이 거칠어지고 있어요.', card_type: 'app', title: '하루 6잔 물 마시기 챌린지', duration: '하루 종일', description: '피부 수분은 외부 케어보다 내부 수분 섭취가 먼저예요. 하루 6잔 목표를 컵을 채워가며 달성해봐요.', youtube_keyword: null, app_code: b64decode('PCFET0NUWVBFIGh0bWw+PGh0bWwgbGFuZz0ia28iPjxoZWFkPjxtZXRhIGNoYXJzZXQ9IlVURi04Ij48c3R5bGU+Kntib3gtc2l6aW5nOmJvcmRlci1ib3g7bWFyZ2luOjA7cGFkZGluZzowfWJvZHl7Zm9udC1mYW1pbHk6c2Fucy1zZXJpZjtiYWNrZ3JvdW5kOiNmMGY2ZmY7ZGlzcGxheTpmbGV4O2ZsZXgtZGlyZWN0aW9uOmNvbHVtbjthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtoZWlnaHQ6MTAwJTtwYWRkaW5nOjE2cHh9LndyYXB7dGV4dC1hbGlnbjpjZW50ZXI7d2lkdGg6MTAwJX0udGl0bGV7Zm9udC1zaXplOjE0cHg7Zm9udC13ZWlnaHQ6NzAwO2NvbG9yOiMxMTE7bWFyZ2luLWJvdHRvbTo0cHh9LnN1Yntmb250LXNpemU6MTFweDtjb2xvcjojODg4O21hcmdpbi1ib3R0b206MjBweH0uY3Vwc3tkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OmNlbnRlcjtnYXA6MTBweDttYXJnaW4tYm90dG9tOjE2cHh9LmN1cHt3aWR0aDozOHB4O2hlaWdodDo0OHB4O2JvcmRlci1yYWRpdXM6NHB4IDRweCAxMHB4IDEwcHg7Ym9yZGVyOjJweCBzb2xpZCAjOTBDQUY5O2JhY2tncm91bmQ6I2ZmZjtjdXJzb3I6cG9pbnRlcjtwb3NpdGlvbjpyZWxhdGl2ZTtvdmVyZmxvdzpoaWRkZW47dHJhbnNpdGlvbjphbGwgMC4yc30uY3VwLmZpbGxlZHtib3JkZXItY29sb3I6IzE5NzZEMn0uY3VwLWZpbGx7cG9zaXRpb246YWJzb2x1dGU7Ym90dG9tOjA7bGVmdDowO3dpZHRoOjEwMCU7aGVpZ2h0OjA7YmFja2dyb3VuZDojNjRCNUY2O3RyYW5zaXRpb246aGVpZ2h0IDAuM3N9LmN1cC5maWxsZWQgLmN1cC1maWxse2hlaWdodDoxMDAlO2JhY2tncm91bmQ6IzE5NzZEMn0uc3RhdHVze2ZvbnQtc2l6ZToxM3B4O2ZvbnQtd2VpZ2h0OjcwMDtjb2xvcjojMTk3NkQyO21hcmdpbi1ib3R0b206OHB4fS5wcm9ncmVzcy1iYXJ7d2lkdGg6MTAwJTtoZWlnaHQ6NnB4O2JhY2tncm91bmQ6I2UwZTBlMDtib3JkZXItcmFkaXVzOjNweDttYXJnaW4tYm90dG9tOjE2cHh9LnByb2dyZXNzLWZpbGx7aGVpZ2h0OjEwMCU7YmFja2dyb3VuZDojMTk3NkQyO2JvcmRlci1yYWRpdXM6M3B4O3RyYW5zaXRpb246d2lkdGggMC4zc30uYnRuLXJvd3tkaXNwbGF5OmZsZXg7Z2FwOjhweDtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyfS5idG57Ym9yZGVyOm5vbmU7Ym9yZGVyLXJhZGl1czoxMHB4O3BhZGRpbmc6OHB4IDE4cHg7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6NjAwO2N1cnNvcjpwb2ludGVyO2ZvbnQtZmFtaWx5OmluaGVyaXR9LmJ0bi1hZGR7YmFja2dyb3VuZDojMTk3NkQyO2NvbG9yOiNmZmZ9LmJ0bi1yZXNldHtiYWNrZ3JvdW5kOiNmMGYwZjA7Y29sb3I6IzU1NX08L3N0eWxlPjwvaGVhZD48Ym9keT48ZGl2IGNsYXNzPSJ3cmFwIj48ZGl2IGNsYXNzPSJ0aXRsZSI+7Jik64qY7J2YIOusvCDrp4jsi5zquLAg7LGM66aw7KeAPC9kaXY+PGRpdiBjbGFzcz0ic3ViIj7tlLzrtoAg7IiY67aE7J2EIOychO2VtCDtlZjro6ggNuyelOydhCDssYTsm4zrtJDsmpQ8L2Rpdj48ZGl2IGNsYXNzPSJjdXBzIiBpZD0iY3VwcyI+PC9kaXY+PGRpdiBjbGFzcz0icHJvZ3Jlc3MtYmFyIj48ZGl2IGNsYXNzPSJwcm9ncmVzcy1maWxsIiBpZD0icGYiIHN0eWxlPSJ3aWR0aDowJSI+PC9kaXY+PC9kaXY+PGRpdiBjbGFzcz0ic3RhdHVzIiBpZD0ic3RhdHVzIj4wIC8gNuyelDwvZGl2PjxkaXYgY2xhc3M9ImJ0bi1yb3ciPjxidXR0b24gY2xhc3M9ImJ0biBidG4tYWRkIiBvbmNsaWNrPSJkcmluaygpIj7tlZwg7J6UIOuniOyFqOyWtOyalCDwn5KnPC9idXR0b24+PGJ1dHRvbiBjbGFzcz0iYnRuIGJ0bi1yZXNldCIgb25jbGljaz0icmVzZXQoKSI+7LSI6riw7ZmUPC9idXR0b24+PC9kaXY+PC9kaXY+PHNjcmlwdD5jb25zdCBHT0FMPTY7bGV0IGNvdW50PXBhcnNlSW50KGxvY2FsU3RvcmFnZS5nZXRJdGVtKCd3YXRlcl9jb3VudCcpfHwnMCcpO2Z1bmN0aW9uIHJlbmRlcigpe2NvbnN0IGN1cHM9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2N1cHMnKTtjdXBzLmlubmVySFRNTD0nJztmb3IobGV0IGk9MDtpPEdPQUw7aSsrKXtjb25zdCBjPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2RpdicpO2MuY2xhc3NOYW1lPSdjdXAnKyhpPGNvdW50PycgZmlsbGVkJzonJyk7Yy5pbm5lckhUTUw9JzxkaXYgY2xhc3M9ImN1cC1maWxsIj48L2Rpdj4nO2Mub25jbGljaz0oKT0+e2NvdW50PWkrMTtzYXZlKCk7cmVuZGVyKCk7fTtjdXBzLmFwcGVuZENoaWxkKGMpO31kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGYnKS5zdHlsZS53aWR0aD0oY291bnQvR09BTCoxMDApKyclJztjb25zdCBzPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzdGF0dXMnKTtpZihjb3VudD49R09BTCl7cy50ZXh0Q29udGVudD0n66qp7ZGcIOuLrOyEsSEg7ZS867aA6rCAIOqzoOuniOybjO2VoCDqsbDsmIjsmpQg8J+OiSc7cy5zdHlsZS5jb2xvcj0nIzA4NTA0MSc7fWVsc2V7cy50ZXh0Q29udGVudD1jb3VudCsnIC8gJytHT0FMKyfsnpQgKCcrKEdPQUwtY291bnQpKyfsnpQg64Ko7JWY7Ja07JqUKSc7cy5zdHlsZS5jb2xvcj0nIzE5NzZEMic7fX1mdW5jdGlvbiBkcmluaygpe2lmKGNvdW50PEdPQUwpe2NvdW50Kys7c2F2ZSgpO3JlbmRlcigpO319ZnVuY3Rpb24gcmVzZXQoKXtjb3VudD0wO3NhdmUoKTtyZW5kZXIoKTt9ZnVuY3Rpb24gc2F2ZSgpe2xvY2FsU3RvcmFnZS5zZXRJdGVtKCd3YXRlcl9jb3VudCcsY291bnQpO31yZW5kZXIoKTs8L3NjcmlwdD48L2JvZHk+PC9odG1sPg==') }
+    ],
+    management: [
+      { cause_variable: '인지 변동성 상승', cause_text: '반응속도 불규칙성이 높아졌어요.', card_type: 'action', title: '눈 감고 10번 깊은 호흡', duration: '지금 · 2분', description: `${name} 점수가 ${Math.abs(delta)}점 하락했어요. 전두엽 피로가 감지됐어요. 10번의 깊은 호흡으로 교감신경을 낮춰보세요.`, youtube_keyword: null, app_code: null },
+      { cause_variable: '정서 부정성 상승', cause_text: '부정 감정 스티커 누적이 감지됐어요.', card_type: 'content', title: '5분 감정 일기 작성법', duration: '5분', description: '감정을 글로 쓰면 편도체 활성이 줄어들어요. 5분 감정 일기 작성법과 부정 감정을 처리하는 방법을 소개합니다.', youtube_keyword: 'emotional journaling 5 minutes negative emotions relief', app_code: null }
+    ]
+  };
+  return (fallbacks[cat] || []).map(f => ({ category: cat, ...f }));
+}
+
+async function callClaudeAPI(category, delta, current, previous) {
+  const SYSTEM_PROMPT = `당신은 슬로우 테라리움의 처방 엔진입니다. 점수 하락이 발생한 카테고리에서 원인 변수를 특정하고, 그 변수 값을 실제로 움직일 수 있는 맞춤 솔루션을 생성합니다.
+
+카테고리별 변수 풀:
+- movement(잘 움직이기): 누적 좌식 비중, 연속 좌식 빈도, 장기 정체, 자세 전환 횟수 부족, 틈새 활동 부족, 운동 승수 미적용
+- recovery(잘 쉬기): 휴식 가용성 부족, 스크린 감소 노력 부족, 절대 사용량 초과, 입면 전 사용, 인지적 긴장, 수면 효율 저하, 깊은 수면 비율 부족
+- grooming(잘 가꾸기): 안색 저하, 피부 텍스처 저하, 돌발 트러블, 열노화 징후, 장벽 붕괴, 항상성 붕괴, 근감소, 체지방 증가, 요요 부하
+- management(잘 다스리기): 인지 변동성 상승, 정서 부정성 상승, 조절 액션 미수행, 회복 속도 지연
+
+규칙:
+1. 해당 카테고리 변수 풀에서 1~3개 랜덤 선정
+2. 변수 성격과 delta 크기를 조합해 카드 타입 결정 (action/content/app)
+3. action: 즉각 실행 가능한 행동 제안
+4. content: 콘텐츠 제목 + 설명 + 유튜브 검색 키워드(영문)
+5. app: 완전한 HTML/JS 코드 (iframe 단독 실행 가능, 외부 의존성 없음)
+6. title은 5~12자의 간결한 대제목으로 작성
+7. duration은 "지금 · 1분" / "10분" / "8분" 같은 짧은 라벨
+8. 카드 타입이 다른 솔루션 2~3개 생성
+9. JSON 외 다른 텍스트 절대 출력하지 않음
+
+출력 형식 (JSON 배열):
+[
+  {
+    "category": "카테고리키",
+    "cause_variable": "원인 변수명",
+    "cause_text": "OOO 때문에 점수가 하락했어요.",
+    "card_type": "action|content|app",
+    "title": "간결한 대제목",
+    "duration": "짧은 라벨",
+    "description": "설명 2~3문장",
+    "youtube_keyword": "영문 키워드 또는 null",
+    "app_code": "HTML 코드 또는 null"
+  }
+]`;
+
+  const userMsg = `카테고리: ${category} (${CATEGORY_NAMES[category]})
+delta: ${delta}점
+현재 점수: ${current[category]}점
+이전 점수: ${previous[category]}점
+
+위 카테고리의 하락 원인을 분석하고 솔루션 카드 2~3개를 생성해주세요.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4000,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMsg }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API 호출 실패: ' + response.status);
+  const data = await response.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
+
+// 전체 솔루션 렌더 (카테고리 pills + 스택 카드)
+function renderAllSolutions(declined, selectedCat) {
+  if (selectedCat) activeCategory = selectedCat;
+  else if (!activeCategory || !declined.includes(activeCategory)) activeCategory = declined[0];
+
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  warn.remove();
+  area.innerHTML = '';
+  area.appendChild(warn);
+
+  // 카테고리 pill 필터
+  if (declined.length > 1) {
+    const pills = document.createElement('div');
+    pills.className = 'cat-pills';
+    declined.forEach(cat => {
+      const pill = document.createElement('div');
+      pill.className = 'cat-pill declined' + (cat === activeCategory ? ' active' : '');
+      pill.innerHTML = `<span class="pill-dot"></span>${CATEGORY_SHORT[cat]}`;
+      pill.addEventListener('click', () => {
+        renderAllSolutions(declined, cat);
+      });
+      pills.appendChild(pill);
+    });
+    area.appendChild(pills);
+  }
+
+  const sols = currentSolutions[activeCategory];
+  if (!sols || !sols.length) { showEmpty('솔루션이 없어요.'); return; }
+
+  // 원인 배너
+  const banner = document.createElement('div');
+  banner.className = 'cause-banner';
+  banner.innerHTML = `<p><strong>${CATEGORY_NAMES[activeCategory]}</strong> · ${sols[0].cause_text}</p>`;
+  area.appendChild(banner);
+
+  // 스택
+  const stack = document.createElement('div');
+  stack.className = 'sol-stack';
+  sols.forEach((sol, idx) => stack.appendChild(renderCard(sol, idx)));
+  area.appendChild(stack);
+
+  document.getElementById('sectionCount').textContent = `${sols.length}개 · ${CATEGORY_SHORT[activeCategory]}`;
+}
+
+function renderCard(sol, idx) {
+  const card = document.createElement('div');
+  const cardId = sol.category + '_' + idx;
+
+  const typeClass = { action: 'c-action', content: 'c-content', app: 'c-app' }[sol.card_type] || 'c-mgmt';
+  const typeLabel = { action: '지금 실행', content: '콘텐츠', app: '앱 실행' }[sol.card_type] || '';
+
+  card.className = 'sol-card ' + typeClass;
+  card.dataset.id = cardId;
+
+  let primaryBtn = '';
+  if (sol.card_type === 'content' && sol.youtube_keyword) {
+    primaryBtn = `<button class="chip solid" onclick="event.stopPropagation();openYoutube('${encodeURIComponent(sol.youtube_keyword)}')">보기 →</button>`;
+  } else if (sol.card_type === 'app' && sol.app_code) {
+    primaryBtn = `<button class="chip solid" onclick="event.stopPropagation();toggleApp('${cardId}')">실행 →</button>`;
+  } else {
+    primaryBtn = `<button class="chip solid" onclick="event.stopPropagation();toggleExpand('${cardId}')">자세히 →</button>`;
+  }
+
+  const duration = sol.duration || (sol.card_type === 'action' ? '지금' : '—');
+
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-meta-left"><span class="card-dot"></span>${typeLabel}</div>
+      <div>${sol.cause_variable}</div>
+    </div>
+    <div class="card-title">${sol.title}</div>
+    <div class="card-bottom">
+      <div class="card-time">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        ${duration}
+      </div>
+      <div class="card-actions">
+        <button class="chip vote-chip" id="up_${cardId}" onclick="event.stopPropagation();vote('${cardId}','👍')">👍</button>
+        <button class="chip vote-chip" id="down_${cardId}" onclick="event.stopPropagation();vote('${cardId}','👎')">👎</button>
+        ${primaryBtn}
+      </div>
+    </div>
+    <div class="card-expand" id="ex_${cardId}">
+      <div class="card-desc">${sol.description}</div>
+      <div class="tag-row">
+        <span class="tag" onclick="event.stopPropagation();selectTag(this)">딱 적합</span>
+        <span class="tag" onclick="event.stopPropagation();selectTag(this)">너무 가벼움</span>
+        <span class="tag" onclick="event.stopPropagation();selectTag(this)">더 풍부하게</span>
+        <span class="tag" onclick="event.stopPropagation();selectTag(this)">너무 무거움</span>
+      </div>
+      ${sol.card_type === 'app' && sol.app_code ? `<div class="app-frame-wrap" id="frame_${cardId}"><iframe id="iframe_${cardId}" sandbox="allow-scripts allow-same-origin"></iframe></div>` : ''}
+    </div>
+  `;
+
+  // 데이터 저장 (vote용)
+  card._sol = sol;
+  card.onclick = () => toggleExpand(cardId);
+
+  return card;
+}
+
+function toggleExpand(cardId) {
+  const ex = document.getElementById('ex_' + cardId);
+  if (ex) ex.classList.toggle('open');
+}
+
+function openYoutube(keyword) {
+  window.open('https://www.youtube.com/results?search_query=' + keyword, '_blank');
+}
+
+function toggleApp(cardId) {
+  const ex = document.getElementById('ex_' + cardId);
+  const frame = document.getElementById('frame_' + cardId);
+  if (ex) ex.classList.add('open');
+  if (!frame) return;
+
+  const isOpen = frame.classList.contains('open');
+  if (isOpen) { frame.classList.remove('open'); return; }
+
+  // srcdoc 직접 주입 — 한글 UTF-8 보장
+  const iframe = document.getElementById('iframe_' + cardId);
+  if (iframe && !iframe.getAttribute('data-loaded')) {
+    const [catKey, idxStr] = cardId.split('_');
+    const sols = (currentSolutions[catKey] && currentSolutions[catKey].length)
+      ? currentSolutions[catKey]
+      : (DUMMY_SOLUTIONS[catKey] || []);
+    const sol = sols[parseInt(idxStr)];
+    if (sol && sol.app_code) {
+      iframe.srcdoc = sol.app_code;
+      iframe.setAttribute('data-loaded', '1');
+    }
+  }
+  frame.classList.add('open');
+}
+
+function selectTag(el) {
+  const row = el.parentElement;
+  row.querySelectorAll('.tag').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function vote(cardId, voteVal) {
+  const upBtn = document.getElementById('up_' + cardId);
+  const downBtn = document.getElementById('down_' + cardId);
+  upBtn.classList.remove('voted-up');
+  downBtn.classList.remove('voted-down');
+  if (voteVal === '👍') upBtn.classList.add('voted-up');
+  else downBtn.classList.add('voted-down');
+
+  const card = upBtn.closest('.sol-card');
+  const sol = card._sol;
+  const selectedTag = card.querySelector('.tag.selected');
+  const tag = selectedTag ? selectedTag.textContent : '';
+
+  saveVote({
+    category: sol.category,
+    causeVar: sol.cause_variable,
+    cardType: sol.card_type,
+    title: sol.title,
+    desc: sol.description,
+    vote: voteVal,
+    tag
+  });
+}
+
+function saveVote(data) {
+  const now = new Date();
+  const ts = now.getFullYear() + '-' +
+    String(now.getMonth()+1).padStart(2,'0') + '-' +
+    String(now.getDate()).padStart(2,'0') + ' ' +
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0');
+
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  history.push({
+    timestamp: ts,
+    category: CATEGORY_NAMES[data.category] || data.category,
+    cause_variable: data.causeVar,
+    card_type: data.cardType,
+    solution_title: data.title,
+    solution_description: data.desc,
+    vote: data.vote,
+    tag: data.tag
+  });
+  localStorage.setItem('poc_b_voting_history', JSON.stringify(history));
+}
+
+function exportCSV() {
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  if (history.length === 0) { alert('저장된 이력이 없어요.'); return; }
+  const headers = ['시각', '카테고리', '원인 변수', '카드 타입', '솔루션 제목', '솔루션 설명', 'vote', '태그'];
+  const rows = history.map(h => [
+    h.timestamp, h.category, h.cause_variable, h.card_type,
+    h.solution_title, h.solution_description, h.vote, h.tag
+  ].map(v => `"${(v||'').replace(/"/g,'""')}"`).join(','));
+  const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'poc_b_voting_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderHistory() {
+  const history = JSON.parse(localStorage.getItem('poc_b_voting_history') || '[]');
+  const content = document.getElementById('historyContent');
+  if (history.length === 0) {
+    content.innerHTML = '<div class="history-empty">아직 voting 이력이 없어요.</div>';
+    return;
+  }
+  const items = [...history].reverse().map(h => `
+    <div class="history-row">
+      <div class="h-top"><span>${h.timestamp}</span><span>${h.vote}</span></div>
+      <div class="h-title">${h.solution_title}</div>
+      <div class="h-meta">
+        <span>${h.category}</span>
+        <span>${h.cause_variable}</span>
+        ${h.tag ? `<span>${h.tag}</span>` : ''}
+      </div>
+    </div>`).join('');
+  content.innerHTML = `<div class="history-list">${items}</div>`;
+}
+
+function switchTab(tab) {
+  const solTab = document.getElementById('solutionTab');
+  const hisTab = document.getElementById('historyTab');
+  const navSol = document.getElementById('navSolution');
+  const navHis = document.getElementById('navHistory');
+  const secHead = document.querySelector('.section-head');
+
+  if (tab === 'solution') {
+    solTab.style.display = 'block';
+    hisTab.style.display = 'none';
+    secHead.style.display = 'flex';
+    navSol.classList.add('active');
+    navHis.classList.remove('active');
+  } else {
+    solTab.style.display = 'none';
+    hisTab.style.display = 'block';
+    secHead.style.display = 'none';
+    navHis.classList.add('active');
+    navSol.classList.remove('active');
+    renderHistory();
+  }
+  solTab.style.paddingBottom = '96px';
+  hisTab.style.paddingBottom = '96px';
+}
+
+function resetCells() {
+  ['movement','recovery','grooming','management'].forEach(cat => {
+    document.getElementById('cell-' + cat).classList.remove('declined');
+  });
+}
+function setDeclined(cat) {
+  document.getElementById('cell-' + cat).classList.add('declined');
+}
+
+function clearScrollArea() {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+}
+function showEmpty(msg) {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+  const el = document.createElement('div');
+  el.className = 'empty-state';
+  el.innerHTML = msg;
+  area.appendChild(el);
+  document.getElementById('sectionCount').textContent = '';
+}
+function showLoading() {
+  const area = document.getElementById('solutionTab');
+  const warn = document.getElementById('apiWarn');
+  area.innerHTML = '';
+  area.appendChild(warn);
+  const el = document.createElement('div');
+  el.className = 'loading-box';
+  el.innerHTML = '분석 중<span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span>';
+  area.appendChild(el);
+}
+
+updateHeroFromInputs();
+document.getElementById('solutionTab').style.paddingBottom = '96px';
+document.getElementById('historyTab').style.paddingBottom = '96px';
+</script>
+</body>
+</html>
